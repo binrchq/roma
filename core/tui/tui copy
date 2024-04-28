@@ -1,0 +1,281 @@
+package tui
+
+import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"strings"
+
+	"bitrec.ai/roma/core/global"
+	"bitrec.ai/roma/core/tui/cmds"
+	"github.com/brckubo/ssh"
+
+	"github.com/brckubo/promptui"
+
+	"github.com/fatih/color"
+	// "github.com/manifoldco/promptui"
+	"github.com/chzyer/readline"
+)
+
+// TUI pui
+type TUI struct {
+	sess *ssh.Session
+}
+
+// SetSession SetSession
+func (ui *TUI) SetSession(s *ssh.Session) {
+	ui.sess = s
+}
+
+func usage(w io.Writer) {
+	io.WriteString(w, "commands:\n")
+	io.WriteString(w, completer.Tree("    "))
+}
+
+// Function constructor - constructs new function for listing given directory
+func listFiles(path string) func(string) []string {
+	return func(line string) []string {
+		names := make([]string, 0)
+		files, _ := ioutil.ReadDir(path)
+		for _, f := range files {
+			names = append(names, f.Name())
+		}
+		return names
+	}
+}
+
+var completer = readline.NewPrefixCompleter(
+	readline.PcItem("mode",
+		readline.PcItem("vi"),
+		readline.PcItem("emacs"),
+	),
+	readline.PcItem("login"),
+	readline.PcItem("say",
+		readline.PcItemDynamic(listFiles("./"),
+			readline.PcItem("with",
+				readline.PcItem("following"),
+				readline.PcItem("items"),
+			),
+		),
+		readline.PcItem("hello"),
+		readline.PcItem("bye"),
+	),
+	readline.PcItem("setprompt"),
+	readline.PcItem("setpassword"),
+	readline.PcItem("bye"),
+	readline.PcItem("help"),
+	readline.PcItem("go",
+		readline.PcItem("build", readline.PcItem("-o"), readline.PcItem("-v")),
+		readline.PcItem("install",
+			readline.PcItem("-v"),
+			readline.PcItem("-vv"),
+			readline.PcItem("-vvv"),
+		),
+		readline.PcItem("test"),
+	),
+	readline.PcItem("sleep"),
+)
+
+func filterInput(r rune) (rune, bool) {
+	switch r {
+	// block CtrlZ feature
+	case readline.CharCtrlZ:
+		return r, false
+	}
+	return r, true
+}
+}
+
+// ShowMenu show menu
+func (ui *TUI) ShowMenu(label string, menu error, BackOptionLabel string, selectedChain error) {
+	if global.CONFIG.Banner.Show {
+		fmt.Fprintln(*ui.sess, color.GreenString(global.CONFIG.Banner.Banner))
+	}
+	page := "~"
+	(&cmds.Help{}).AllCommandName(*ui.sess)
+	(*ui.sess).SendRequest("exec", false, []byte("clear"))
+
+	history := []string{"ls", "cdd", "sds", "whoami"} // 用于存储历史记录的切片
+
+	l, err := readline.NewEx(&readline.Config{
+		Prompt: "\033[31m»\033[0m ",
+		// HistoryFile:     "/tmp/readline.tmp",
+		AutoComplete:    completer,
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+
+		HistorySearchFold:   true,
+		FuncFilterInputRune: filterInput,
+	})
+	for _, h := range history {
+		l.SaveHistory(h)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+	defer l.Close()
+	l.CaptureExitSignal()
+
+	setPasswordCfg := l.GenPasswordConfig()
+	setPasswordCfg.SetListener(func(line []rune, pos int, key rune) (newLine []rune, newPos int, ok bool) {
+		l.SetPrompt(fmt.Sprintf("Enter password(%v): ", len(line)))
+		l.Refresh()
+		return nil, 0, false
+	})
+
+	log.SetOutput(l.Stderr())
+	for {
+		// Create a new prompt instance
+		templates := &promptui.PromptTemplates{
+			Prompt:          "{{ . }} ",
+			Valid:           "{{ . }} ",
+			Invalid:         "{{ . }} ",
+			Success:         "{{ . }} ",
+			ValidationError: "{{ . }} ",
+			Confirm:         "{{ . }} ",
+		}
+		// keyBindings := promptui.KeyBindings{
+		// 	promptui.KeyDown: func(prompt *promptui.Prompt) {
+		// 		if len(history) == 0 {
+		// 			return
+		// 		}
+		// 		// 获取历史记录的下一个条目
+		// 		nextHistory := (*ui).getNextHistory(history, prompt.Buffer())
+		// 		if nextHistory != "" {
+		// 			prompt.SetValue(nextHistory)
+		// 		}
+		// 	},
+		// 	promptui.KeyUp: func(prompt *promptui.Prompt) {
+		// 		if len(history) == 0 {
+		// 			return
+		// 		}
+		// 		// 获取历史记录的上一个条目
+		// 		prevHistory := (*ui).getPrevHistory(history, prompt.Buffer())
+		// 		if prevHistory != "" {
+		// 			prompt.SetValue(prevHistory)
+		// 		}
+		// 	},
+		// }
+
+		prompt := promptui.Prompt{
+			Label:  color.WhiteString((*ui.sess).User()) + color.YellowString(".") + color.GreenString(global.CONFIG.Common.Prompt) + " " + color.CyanString(page) + "",
+			Stdin:  *ui.sess,
+			Stdout: *ui.sess,
+			// IsVimMode: true,
+			Templates: templates,
+			History:   history,
+			Pointer:   func(to []rune) []rune { return []rune(fmt.Sprintf("\033[7m%s\033[0m", string(to))) },
+			// Pointer: promptui.DefaultCursor,
+			// KeyBindings: keyBindings,
+		}
+
+		// Display the prompt and wait for user input
+		result, err := prompt.Run()
+		if err != nil {
+			fmt.Printf("Prompt failed: %v\n", err)
+			return
+		}
+		if result == "" {
+			continue
+		}
+		command := strings.Fields(result)
+		history = append(history, result)
+		switch command[0] {
+		case "ls":
+			var typeName string
+			if len(command) == 1 {
+				(&cmds.Ls{}).Execute(*ui.sess, []string{page})
+				continue
+			} else {
+				typeName = command[1]
+			}
+			if typeName == "-h" {
+				fmt.Fprintln(*ui.sess, (&cmds.Ls{}).Help())
+				continue
+			}
+			err := (&cmds.Ls{}).Execute(*ui.sess, []string{typeName})
+			if err != nil {
+				fmt.Fprintf(*ui.sess, "error: %s\n", err)
+				continue
+			}
+		case "use":
+			var typeName string
+			if len(command) == 1 {
+				typeName = "~"
+			} else {
+				typeName = command[1]
+			}
+			if typeName == "-h" {
+				fmt.Fprintln(*ui.sess, (&cmds.Use{}).Help())
+				continue
+			}
+			t, err := (&cmds.Use{}).Use(typeName)
+			if err != nil {
+				fmt.Fprintf(*ui.sess, "type not found: %s\n", typeName)
+				fmt.Fprintln(*ui.sess, "Type 'use -h' for more information")
+				continue
+			}
+			page = t
+		case "ln":
+			var typeName string
+			if len(command) == 1 {
+				fmt.Fprintln(*ui.sess, (&cmds.Ln{}).Help())
+				continue
+			} else {
+				typeName = command[1]
+			}
+			if typeName == "-h" {
+				fmt.Fprintln(*ui.sess, (&cmds.Ln{}).Help())
+				continue
+			}
+			err := (&cmds.Ln{}).Execute((ui.sess), command[1:])
+			if err != nil {
+				fmt.Fprintf((*ui.sess), color.RedString("error: %s\n"), err)
+				continue
+			}
+		case "exit", "quit":
+			err := (&cmds.Exit{}).Exit(*ui.sess)
+			if err != nil {
+				log.Println("Error closing session:", err)
+			}
+		case "help":
+			(&cmds.Help{}).Execute(*ui.sess)
+		case "whoami":
+			(&cmds.Whoami{}).Whoami(*ui.sess)
+		default:
+			err := (&cmds.Ln{}).Execute(ui.sess, []string{page, command[0]})
+			if err != nil {
+				fmt.Fprintf(*ui.sess, color.RedString("error: %s\n"), err)
+				continue
+			}
+		}
+	}
+
+}
+
+// 获取历史记录的下一个条目
+func (ui *TUI) getNextHistory(history []string, currentInput string) string {
+	for i := len(history) - 1; i >= 0; i-- {
+		if strings.HasPrefix(history[i], currentInput) {
+			return history[i]
+		}
+	}
+	return ""
+}
+
+// 获取历史记录的上一个条目
+func (ui *TUI) getPrevHistory(history []string, currentInput string) string {
+	for _, item := range history {
+		if strings.HasPrefix(item, currentInput) {
+			return item
+		}
+	}
+	return ""
+}
+
+// ShowMainMenu show main menu
+func (ui *TUI) ShowMainMenu() {
+	ui.ShowMenu("Please select the function you need", nil, "Quit", nil)
+}

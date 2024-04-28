@@ -1,0 +1,11 @@
+version: "3"
+services: 
+  roma:
+    image: roma:latest
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports: 
+      - "2222:2222"
+    volumes: 
+      - "./volumes/root/.ssh:/root.ssh"
