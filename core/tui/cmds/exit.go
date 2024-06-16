@@ -5,9 +5,25 @@ import (
 	"github.com/brckubo/ssh"
 )
 
-type Exit struct{}
+func init() {
+	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: NewExit(), Weight: 1})
+	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: NewExit(), Weight: 1})
+}
 
-func (e *Exit) Exit(sess ssh.Session) error {
+func (cmd *Exit) Name() string {
+	return "exit"
+}
+
+type Exit struct {
+	baseLen int // 基础命令长度
+	flags   *Flags
+}
+
+func NewExit() *Exit {
+	return &Exit{baseLen: 4, flags: &Flags{}}
+}
+
+func (cmd *Exit) Exit(sess ssh.Session) error {
 	if sess != nil {
 		err := sess.Close()
 		if err != nil {
@@ -16,16 +32,7 @@ func (e *Exit) Exit(sess ssh.Session) error {
 	}
 	return nil
 }
-
-func (e *Exit) Name() string {
-	return "exit"
-}
-
-func (e *Exit) Usage() string {
-	return "exit - Exit the program"
-}
-
-func init() {
-	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: &Exit{}, Weight: 1})
-	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: &Exit{}, Weight: 1})
+func (cmd *Exit) Usage() string {
+	usageMsg := cmd.flags.FormatUsageln("🍂 %s - Exit the program", green(cmd.Name()))
+	return usageMsg
 }

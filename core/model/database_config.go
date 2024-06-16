@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bitrec.ai/roma/core/constants"
+	"bitrec.ai/roma/core/types"
 	"gorm.io/gorm"
 )
 
@@ -30,35 +31,12 @@ func (r *DatabaseConfig) GetResource() Resource {
 	return r
 }
 
-func (r *DatabaseConfig) GetConnect() []map[string]interface{} {
-	return []map[string]interface{}{
-		{constants.ConnectDatabase: map[string]interface{}{
-			"host":       r.IPv4Pub,
-			"port":       r.Port,
-			"database":   r.DatabaseName,
-			"type":       r.DatabaseType,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}}, {constants.ConnectDatabase: map[string]interface{}{
-			"host":       r.IPv4Priv,
-			"port":       r.Port,
-			"database":   r.DatabaseName,
-			"type":       r.DatabaseType,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}},
-		{constants.ConnectDatabase: map[string]interface{}{
-			"host":       r.IPv6,
-			"port":       r.Port,
-			"database":   r.DatabaseName,
-			"type":       r.DatabaseType,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}},
-	}
+func (r *DatabaseConfig) GetConnect() []*types.Connection {
+	connection := []*types.Connection{}
+	connection = append(connection, types.NewConnection(constants.ConnectDatabase, r.IPv4Pub, r.Port, r.Username, r.Password, r.PrivateKey, r.DatabaseType, r.DatabaseName))
+	connection = append(connection, types.NewConnection(constants.ConnectDatabase, r.IPv4Priv, r.Port, r.Username, r.Password, r.PrivateKey, r.DatabaseType, r.DatabaseName))
+	connection = append(connection, types.NewConnection(constants.ConnectDatabase, r.IPv6, r.Port, r.Username, r.Password, r.PrivateKey, r.DatabaseType, r.DatabaseName))
+	return connection
 }
 
 func (r *DatabaseConfig) GetID() int64 {

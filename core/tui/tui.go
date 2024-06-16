@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
+	"math/rand"
 	"strings"
+	"time"
 
+	"bitrec.ai/roma/core/constants"
 	"bitrec.ai/roma/core/global"
 	"bitrec.ai/roma/core/tui/cmds"
 	"github.com/brckubo/ssh"
 
 	"github.com/fatih/color"
+	"github.com/rs/zerolog/log"
 
 	// "github.com/manifoldco/promptui"
 	"github.com/chzyer/readline"
@@ -25,11 +28,6 @@ type TUI struct {
 // SetSession SetSession
 func (ui *TUI) SetSession(s *ssh.Session) {
 	ui.sess = s
-}
-
-func usage(w io.Writer) {
-	io.WriteString(w, "commands:\n")
-	io.WriteString(w, completer.Tree("    "))
 }
 
 // Function constructor - constructs new function for listing given directory
@@ -90,17 +88,7 @@ func (ui *TUI) echo(output string) {
 }
 
 func (ui *TUI) echo_e(output string) {
-
 	fmt.Fprint(*ui.sess, output)
-	// fmt.Fprintf(*ui.sess, "\n%s", output)
-	// 刷新 stdout 缓冲区
-	// (*ui.sess).CloseWrite()
-	// rcode, err := (*ui.sess).Write([]byte(output))
-	// if err != nil {
-	// 	fmt.Println("write error:", err)
-	// }
-	// fmt.Println("rcode error:", rcode)
-	// fmt.Fprintf(*ui.sess, "\n")
 }
 
 // ShowMenu show menu
@@ -133,14 +121,8 @@ func (ui *TUI) ShowMenu(label string, menu error, BackOptionLabel string, select
 	}
 	defer l.Close()
 	l.CaptureExitSignal()
-	log.SetOutput(l.Stderr())
 	// sb := screenbuf.New(l)
 	for {
-		// sb.Reset()
-		// sb.Write([]byte(color.WhiteString((*ui.sess).User()) + color.YellowString(".") + color.GreenString(global.CONFIG.Common.Prompt) + " " + color.CyanString(page) + " \n"))
-		// sb.Flush()
-		// ui.echo(color.WhiteString((*ui.sess).User()) + color.YellowString(".") + color.GreenString(global.CONFIG.Common.Prompt) + " " + color.CyanString(page) + " ")
-		// ui.echo_e(color.WhiteString((*ui.sess).User()) + color.YellowString(".") + color.GreenString(global.CONFIG.Common.Prompt) + " " + color.CyanString(page) + " ")
 		line, err := l.Readline()
 		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
@@ -156,66 +138,55 @@ func (ui *TUI) ShowMenu(label string, menu error, BackOptionLabel string, select
 		cmd := strings.Split(line, " ")[0]
 		switch {
 		case cmd == "ls":
-			res, err := cmds.NewLs(*ui.sess).Execute(line)
+			log.Debug().Msgf("ls %s", page)
+			res, err := cmds.NewLs(*ui.sess, page).Execute(line)
 			if err != nil {
 				ui.echo(color.RedString("%s", err))
 				continue
 			}
 			ui.echo_e(res.(string))
-			// case strings.HasPrefix(line, "use"):
-			// 	var typeName string
-			// 	if len(command) == 1 {
-			// 		typeName = "~"
-			// 	} else {
-			// 		typeName = command[1]
-			// 	}
-			// 	if typeName == "-h" {
-			// 		fmt.Fprintln(*ui.sess, (&cmds.Use{}).Help())
-			// 		continue
-			// 	}
-			// 	t, err := (&cmds.Use{}).Use(typeName)
-			// 	if err != nil {
-			// 		fmt.Fprintf(*ui.sess, "type not found: %s\n", typeName)
-			// 		fmt.Fprintln(*ui.sess, "Type 'use -h' for more information")
-			// 		continue
-			// 	}
-			// 	page = t
-			// case strings.HasPrefix(line, "ln"):
-			// 	var typeName string
-			// 	if len(command) == 1 {
-			// 		fmt.Fprintln(*ui.sess, (&cmds.Ln{}).Help())
-			// 		continue
-			// 	} else {
-			// 		typeName = command[1]
-			// 	}
-			// 	if typeName == "-h" {
-			// 		fmt.Fprintln(*ui.sess, (&cmds.Ln{}).Help())
-			// 		continue
-			// 	}
-			// 	err := (&cmds.Ln{}).Execute((ui.sess), command[1:])
-			// 	if err != nil {
-			// 		fmt.Fprintf((*ui.sess), color.RedString("error: %s\n"), err)
-			// 		continue
-			// 	}
-			// case strings.HasPrefix(line, "quit"):
-			// case strings.HasPrefix(line, "exit"):
-			// 	err := (&cmds.Exit{}).Exit(*ui.sess)
-			// 	if err != nil {
-			// 		log.Println("Error closing session:", err)
-			// 	}
-			// case strings.HasPrefix(line, "help"):
-			// 	(&cmds.Help{}).Execute(*ui.sess)
-			// case strings.HasPrefix(line, "whoami"):
-			// 	(&cmds.Whoami{}).Whoami(*ui.sess)
-			// default:
-			// 	err := (&cmds.Ln{}).Execute(ui.sess, []string{page, command[0]})
-			// 	if err != nil {
-			// 		fmt.Fprintf(*ui.sess, color.RedString("error: %s\n"), err)
-			// 		continue
-			// 	}
-			// }
+		case cmd == "use":
+			fold, err := cmds.NewUse().Execute(line)
+			if err != nil {
+				ui.echo(color.RedString("%s", err))
+				continue
+			}
+			page = fold
+			ui.SetPrompt(l, page)
+		case cmd == "quit":
+		case cmd == "exit":
+			err := cmds.NewExit().Exit(*ui.sess)
+			if err != nil {
+
+			}
+		case cmd == "help":
+			cmds.NewHelp().Execute(*ui.sess)
+		case cmd == "whoami":
+			cmds.NewWhoami().Whoami(*ui.sess)
+		case cmd == "ln":
+		default:
+			if cmd != "" {
+				res, err := cmds.NewLn(*ui.sess, page).Execute(line)
+				if err != nil {
+					ui.echo(color.RedString("%s", err))
+					continue
+				}
+				ui.echo_e(res.(string))
+			}
 		}
+		l.SaveHistory(line)
 	}
+}
+
+func (ui *TUI) SetPrompt(l *readline.Instance, prompt string) {
+	//根据prompt打印不同的ascii
+	rand.Seed(time.Now().UnixNano()) // 初始化随机数种子
+	// 根据 prompt 打印不同的 ASCII 艺术字符
+	if asciiSlice, exists := constants.AsciiPrompts[prompt]; exists {
+		randomIndex := rand.Intn(len(asciiSlice)) // 随机选择一个 ASCII 艺术字符
+		ui.echo_e(color.GreenString(asciiSlice[randomIndex]))
+	}
+	l.SetPrompt(color.WhiteString((*ui.sess).User()) + color.YellowString(".") + color.GreenString(global.CONFIG.Common.Prompt) + " " + color.CyanString(prompt) + " ")
 }
 
 // ShowMainMenu show main menu

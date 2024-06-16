@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bitrec.ai/roma/core/constants"
+	"bitrec.ai/roma/core/types"
 	"gorm.io/gorm"
 )
 
@@ -29,26 +30,12 @@ func (r *SwitchConfig) GetResource() Resource {
 	return r
 }
 
-func (r *SwitchConfig) GetConnect() []map[string]interface{} {
-	return []map[string]interface{}{
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":     r.IPv4Pub,
-			"port":     r.Port,
-			"username": r.Username,
-			"password": r.Password,
-		}}, {constants.ConnectSSH: map[string]interface{}{
-			"host":     r.IPv4Priv,
-			"port":     r.PortActual,
-			"username": r.Username,
-			"password": r.Password,
-		}},
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":     r.IPv6,
-			"port":     r.PortIPv6,
-			"username": r.Username,
-			"password": r.Password,
-		}},
-	}
+func (r *SwitchConfig) GetConnect() []*types.Connection {
+	connection := []*types.Connection{}
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv4Pub, r.Port, r.Username, r.Password))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv4Priv, r.PortActual, r.Username, r.Password))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv6, r.PortIPv6, r.Username, r.Password))
+	return connection
 }
 
 // ID

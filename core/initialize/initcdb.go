@@ -9,6 +9,7 @@ import (
 
 	"bitrec.ai/roma/core/global"
 	"bitrec.ai/roma/core/model"
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -45,7 +46,7 @@ func initSQLite() (*gorm.DB, error) {
 		directory := filepath.Dir(global.CONFIG.Database.CdbUrl)
 		if err := os.MkdirAll(directory, 0755); err != nil {
 			// 创建目录失败，输出错误信息并退出程序
-			fmt.Printf("无法创建目录：%s\n", err)
+			log.Error().Err(err).Msgf("无法创建数据库目录")
 			os.Exit(1)
 		}
 		if _, err := os.Create(global.CONFIG.Database.CdbUrl); err != nil {

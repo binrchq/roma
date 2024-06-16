@@ -38,7 +38,14 @@ func (r *RoleOperation) GetRoleByName(name string) (*model.Role, error) {
 	}
 	return &role, nil
 }
-
+func (r *RoleOperation) GetRoleByID(id uint64) (*model.Role, error) {
+	var role model.Role
+	// 根据名称获取角色
+	if err := r.DB.Where("id = ?", id).First(&role).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
 func (r *RoleOperation) Create(role *model.Role) (*model.Role, error) {
 	// 创建角色
 	if err := r.DB.Create(role).Error; err != nil {
@@ -53,4 +60,20 @@ func (r *RoleOperation) Update(role *model.Role) (*model.Role, error) {
 		return nil, err
 	}
 	return role, nil
+}
+
+func (r *RoleOperation) Delete(role *model.Role) error {
+	// 删除角色
+	if err := r.DB.Delete(role).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *RoleOperation) DeleteByID(id uint64) error {
+	// 删除角色
+	if err := r.DB.Where("id = ?", id).Delete(&model.Role{}).Error; err != nil {
+		return err
+	}
+	return nil
 }

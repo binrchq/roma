@@ -7,7 +7,7 @@ port = '6999'
 
 [common]
 language = 'zh'
-port = '2222'
+port = '2200'
 prompt = 'roma'
 
 [database]

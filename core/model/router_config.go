@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bitrec.ai/roma/core/constants"
+	"bitrec.ai/roma/core/types"
 	"gorm.io/gorm"
 )
 
@@ -31,45 +32,15 @@ func (r *RouterConfig) GetResource() Resource {
 	return r
 }
 
-func (r *RouterConfig) GetConnect() []map[string]interface{} {
-	return []map[string]interface{}{
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":       r.IPv4Pub,
-			"port":       r.Port,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}}, {constants.ConnectSSH: map[string]interface{}{
-			"host":       r.IPv4Priv,
-			"port":       r.Port,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}},
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":       r.IPv6,
-			"port":       r.Port,
-			"username":   r.Username,
-			"password":   r.Password,
-			"privateKey": r.PrivateKey,
-		}}, {constants.ConnectHTTP: map[string]interface{}{
-			"host":     r.IPv4Pub,
-			"port":     r.WebPort,
-			"username": r.WebUsername,
-			"password": r.WebPassword,
-		}}, {constants.ConnectHTTP: map[string]interface{}{
-			"host":     r.IPv4Priv,
-			"port":     r.WebPort,
-			"username": r.WebUsername,
-			"password": r.WebPassword,
-		}},
-		{constants.ConnectHTTP: map[string]interface{}{
-			"host":     r.IPv6,
-			"port":     r.WebPort,
-			"username": r.WebUsername,
-			"password": r.WebPassword,
-		}},
-	}
+func (r *RouterConfig) GetConnect() []*types.Connection {
+	connection := []*types.Connection{}
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv4Pub, r.Port, r.Username, r.Password, r.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv4Priv, r.Port, r.Username, r.Password, r.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, r.IPv6, r.Port, r.Username, r.Password, r.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectHTTP, r.IPv4Pub, r.WebPort, r.WebUsername, r.WebPassword))
+	connection = append(connection, types.NewConnection(constants.ConnectHTTP, r.IPv4Priv, r.WebPort, r.WebUsername, r.WebPassword))
+	connection = append(connection, types.NewConnection(constants.ConnectHTTP, r.IPv6, r.WebPort, r.WebUsername, r.WebPassword))
+	return connection
 }
 
 // ID

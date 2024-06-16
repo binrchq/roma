@@ -22,6 +22,7 @@ const DOCKER_ASCII01 = `
     \______ o          __/
       \    \        __/
         \____\______/
+
 `
 const DOCKER_ASCII02 = `
       ##         .
@@ -30,6 +31,22 @@ const DOCKER_ASCII02 = `
 /""""""""""""""""\___/ ===
 |     Docker     |   /  ===
 \________________/_______|
+
+`
+
+const DOCKER_ASCII03 = `
+         _.-^^---....,,--
+     _--                  --_
+    <                        >)
+    |                         |
+     \._                   _./
+        '''--. . , ; .--'''
+              | |   |
+           .-=||  | |=-.
+           '-=#$%&%$#=-'
+              | ;  :|
+     _____.,-#%&$@%#&#~,._____
+     
 `
 
 const LINUX_ASCII01 = `
@@ -40,6 +57,7 @@ const LINUX_ASCII01 = `
 (|     | )
 /'\_   _/'\
 \___)=(___/
+
 `
 
 const LINUX_ASCII02 = `
@@ -49,6 +67,7 @@ const LINUX_ASCII02 = `
 //   \ \
 \     |/
  \_/\_/
+
 `
 
 const WINDOWS_ASCII01 = `
@@ -57,7 +76,28 @@ const WINDOWS_ASCII01 = `
 '-..-'|_.-;;-._|
 '-..-'|   ||   |
 '-..-'|_.-''-._|
+
 `
+const WINDOWS_ASCII02 = `
+${c1}                       .oodMMMM
+                   .oodMMMMMMMMMMMMM
+       ..oodMMM  MMMMMMMMMMMMMMMMMMM
+ oodMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ 
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+ MMMMMMMMMMMMMM  MMMMMMMMMMMMMMMMMMM
+  ^^^^^^MMMMMMM  MMMMMMMMMMMMMMMMMMM
+         ^^^^    ^^MMMMMMMMMMMMMMMMM
+                          ^^^^^^MMMM
+                      `
 const DATABASE_ASCII01 = "" +
 	"-. .-.   .-. .-.   .-. .-.   .\n" +
 	"||\\|||\\ /|||\\|||\\ /|||\\|||\\ /|\n" +
@@ -73,9 +113,30 @@ const SWITCH_ASCII01 = `
 |   ...         |
 |   Port 48     |
 |_______________|
+
+`
+const SWITCH_ASCII02 = `
+switch -\
+
 `
 const ROUTER_ASCII01 = `
  |__|__|
 |  ___  |
 |_______|
+
 `
+
+const ROUTER_ASCII02 = `
+|_| roooooooooooouter
+
+`
+
+var AsciiPrompts = map[string][]string{
+	ResourceTypeDocker:   {DOCKER_ASCII01, DOCKER_ASCII02, DOCKER_ASCII03},
+	ResourceTypeLinux:    {LINUX_ASCII01, LINUX_ASCII02},
+	ResourceTypeDatabase: {DATABASE_ASCII01},
+	ResourceTypeSwitch:   {SWITCH_ASCII01, SWITCH_ASCII02},
+	ResourceTypeRouter:   {ROUTER_ASCII01, ROUTER_ASCII02},
+	ResourceTypeWindows:  {WINDOWS_ASCII01, WINDOWS_ASCII02},
+	"~":                  {ROMA_ASCII01},
+}

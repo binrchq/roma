@@ -9,9 +9,29 @@ import (
 	"github.com/brckubo/ssh"
 )
 
-type Whoami struct{}
+func init() {
+	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: &Whoami{}, Weight: 10})
+	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: &Whoami{}, Weight: 10})
+}
 
-func (c *Whoami) Whoami(sess ssh.Session) {
+type Whoami struct {
+	baseLen int // 基础命令长度
+	flags   *Flags
+}
+
+func NewWhoami() *Whoami {
+	return &Whoami{
+		baseLen: 7,
+		flags:   &Flags{},
+	}
+}
+
+// Name 返回命令名称
+func (cmd *Whoami) Name() string {
+	return "whoami"
+}
+
+func (cmd *Whoami) Whoami(sess ssh.Session) {
 	op := operation.NewUserOperation()
 	userInfo, err := op.GetUserByUsername(sess.User())
 	if err != nil {
@@ -47,16 +67,7 @@ func (c *Whoami) Whoami(sess ssh.Session) {
 	w.Flush()
 }
 
-func (w *Whoami) Usage() string {
-	return "whoami - Get user information"
-}
-
-// Name 返回命令名称
-func (w *Whoami) Name() string {
-	return "whoami"
-}
-
-func init() {
-	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: &Whoami{}, Weight: 10})
-	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: &Whoami{}, Weight: 10})
+func (cmd *Whoami) Usage() string {
+	usageMsg := cmd.flags.FormatUsageln("🍂 %s - Get user(me) information", green(cmd.Name()))
+	return usageMsg
 }

@@ -17,12 +17,12 @@ import (
 func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key string, resType string) error {
 	upstreamClient, err := NewSSHClient(ip, port, sshUser, key, resType)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	upstreamSess, err := upstreamClient.NewSession()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer upstreamSess.Close()
 

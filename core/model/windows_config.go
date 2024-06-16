@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bitrec.ai/roma/core/constants"
+	"bitrec.ai/roma/core/types"
 	"gorm.io/gorm"
 )
 
@@ -29,27 +30,12 @@ func (w *WindowsConfig) GetResource() Resource {
 	return w
 }
 
-func (w *WindowsConfig) GetConnect() []map[string]interface{} {
-	return []map[string]interface{}{
-		{constants.ConnectRDP: map[string]interface{}{
-			"host":     w.IPv4Priv,
-			"port":     w.Port,
-			"username": w.Username,
-			"password": w.Password,
-		}},
-		// {constants.ConnectVNC: map[string]interface{}{
-		// 	"host":     w.IPv4Priv,
-		// 	"port":     w.Port,
-		// 	"username": w.Username,
-		// 	"password": w.Password,
-		// }},
-		// {constants.ConnectSSH: map[string]interface{}{
-		// 	"host":     w.IPv4Priv,
-		// 	"port":     w.Port,
-		// 	"username": w.Username,
-		// 	"password": w.Password,
-		// }},
-	}
+func (w *WindowsConfig) GetConnect() []*types.Connection {
+	connection := []*types.Connection{}
+	connection = append(connection, types.NewConnection(constants.ConnectRDP, w.IPv4Priv, w.Port, w.Username, w.Password))
+	connection = append(connection, types.NewConnection(constants.ConnectVNC, w.IPv4Priv, w.Port, w.Username, w.Password))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, w.IPv4Priv, w.Port, w.Username, w.Password))
+	return connection
 }
 
 // ID

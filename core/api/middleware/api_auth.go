@@ -33,5 +33,12 @@ func isValidApiKey(apiKey string) bool {
 	if err != nil {
 		return false
 	}
+	vaild, err := op.ApiKeyIsValid(apiKey)
+	if err != nil {
+		return false
+	}
+	if !exists || !vaild {
+		return false
+	}
 	return exists
 }

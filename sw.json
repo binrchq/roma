@@ -1,0 +1,228 @@
+{
+    "swagger": "2.0",
+    "info": {
+      "title": "API Documentation",
+      "version": "1.0.0",
+      "description": "API endpoints for managing users, roles, resources, and API keys."
+    },
+    "basePath": "/",
+    "paths": {
+      "/api/users": {
+        "get": {
+          "summary": "Get all users",
+          "responses": {
+            "200": {
+              "description": "Successful operation"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create a new user",
+          "responses": {
+            "200": {
+              "description": "User created successfully"
+            }
+          }
+        }
+      },
+      "/api/users/{id}": {
+        "get": {
+          "summary": "Get user by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful operation"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update user by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "User updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete user by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "User deleted successfully"
+            }
+          }
+        }
+      },
+      "/api/roles": {
+        "get": {
+          "summary": "Get all roles",
+          "responses": {
+            "200": {
+              "description": "Successful operation"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create a new role",
+          "responses": {
+            "200": {
+              "description": "Role created successfully"
+            }
+          }
+        }
+      },
+      "/api/roles/{id}": {
+        "get": {
+          "summary": "Get role by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful operation"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update role by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Role updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete role by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Role deleted successfully"
+            }
+          }
+        }
+      },
+      "/api/resources": {
+        "get": {
+          "summary": "Get all resources",
+          "responses": {
+            "200": {
+              "description": "Successful operation"
+            }
+          }
+        },
+        "post": {
+          "summary": "Add a new resource",
+          "responses": {
+            "200": {
+              "description": "Resource added successfully"
+            }
+          }
+        }
+      },
+      "/api/resources/{id}": {
+        "put": {
+          "summary": "Update resource by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Resource updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete resource by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Resource deleted successfully"
+            }
+          }
+        }
+      },
+      "/api/apikeys": {
+        "post": {
+          "summary": "Create a new API key",
+          "responses": {
+            "200": {
+              "description": "API key created successfully"
+            }
+          }
+        }
+      },
+      "/api/apikeys/{id}": {
+        "delete": {
+          "summary": "Delete API key by ID",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "type": "integer"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "API key deleted successfully"
+            }
+          }
+        }
+      }
+    }
+  }
+  

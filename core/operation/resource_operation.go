@@ -7,6 +7,7 @@ import (
 	"bitrec.ai/roma/core/constants"
 	"bitrec.ai/roma/core/global"
 	"bitrec.ai/roma/core/model"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -127,13 +128,195 @@ func (r *ResourceOperation) CreateResource(resource model.Resource, resourceType
 		return nil, errors.New("unknown resource type:" + resourceType)
 	}
 }
+func (r *ResourceOperation) UpdateLinuxResource(resource *model.LinuxConfig) (*model.LinuxConfig, error) {
+	// Find the existing resource by its Hostname
+	existingResource := &model.LinuxConfig{}
+	if err := r.DB.Where("hostname = ?", resource.Hostname).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("hostname not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+
+func (r *ResourceOperation) UpdateWindowsResource(resource *model.WindowsConfig) (*model.WindowsConfig, error) {
+	// Find the existing resource by its Hostname
+	existingResource := &model.WindowsConfig{}
+	if err := r.DB.Where("hostname = ?", resource.Hostname).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("hostname not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+
+func (r *ResourceOperation) UpdateDatabaseResource(resource *model.DatabaseConfig) (*model.DatabaseConfig, error) {
+	// Find the existing resource by its DatabaseNick
+	existingResource := &model.DatabaseConfig{}
+	if err := r.DB.Where("database_nick = ?", resource.DatabaseNick).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("database nick name not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+
+func (r *ResourceOperation) UpdateRouterResource(resource *model.RouterConfig) (*model.RouterConfig, error) {
+	// Find the existing resource by its RouterName
+	existingResource := &model.RouterConfig{}
+	if err := r.DB.Where("router_name = ?", resource.RouterName).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("router name not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+func (r *ResourceOperation) UpdateSwitchResource(resource *model.SwitchConfig) (*model.SwitchConfig, error) {
+	// Find the existing resource by its SwitchName
+	existingResource := &model.SwitchConfig{}
+	if err := r.DB.Where("switch_name = ?", resource.SwitchName).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("switch name not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+
+func (r *ResourceOperation) UpdateDockerResource(resource *model.DockerConfig) (*model.DockerConfig, error) {
+	// Find the existing resource by its ContainerName
+	existingResource := &model.DockerConfig{}
+	if err := r.DB.Where("container_name = ?", resource.ContainerName).First(existingResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("docker container name not found: %w", err)
+		}
+		return nil, err
+	}
+
+	// Update the resource with the new data
+	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
+		return nil, err
+	}
+
+	return existingResource, nil
+}
+
+func (r *ResourceOperation) UpdateResource(resource model.Resource, resourceType string) (model.Resource, error) {
+	switch resourceType {
+	case constants.ResourceTypeLinux:
+		return r.UpdateLinuxResource(resource.(*model.LinuxConfig))
+	case constants.ResourceTypeRouter:
+		return r.UpdateRouterResource(resource.(*model.RouterConfig))
+	case constants.ResourceTypeWindows:
+		return r.UpdateWindowsResource(resource.(*model.WindowsConfig))
+	case constants.ResourceTypeDocker:
+		return r.UpdateDockerResource(resource.(*model.DockerConfig))
+	case constants.ResourceTypeDatabase:
+		return r.UpdateDatabaseResource(resource.(*model.DatabaseConfig))
+	case constants.ResourceTypeSwitch:
+		return r.UpdateSwitchResource(resource.(*model.SwitchConfig))
+	default:
+		return nil, errors.New("unknown resource type: " + resourceType)
+	}
+}
+
+func (r *ResourceOperation) DeleteLinuxResource(identifier string) error {
+	if err := r.DB.Where("hostname = ?", identifier).Or("id = ?", identifier).Delete(&model.LinuxConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ResourceOperation) DeleteRouterResource(identifier string) error {
+	if err := r.DB.Where("router_name = ?", identifier).Or("id = ?", identifier).Delete(&model.RouterConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+func (r *ResourceOperation) DeleteWindowsResource(identifier string) error {
+	if err := r.DB.Where("hostname = ?", identifier).Or("id = ?", identifier).Delete(&model.WindowsConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ResourceOperation) DeleteDockerResource(identifier string) error {
+	if err := r.DB.Where("container_name = ?", identifier).Or("id = ?", identifier).Delete(&model.DockerConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+func (r *ResourceOperation) DeleteDatabaseResource(identifier string) error {
+	if err := r.DB.Where("database_nick = ?", identifier).Or("id = ?", identifier).Delete(&model.DatabaseConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+func (r *ResourceOperation) DeleteSwitchResource(identifier string) error {
+	if err := r.DB.Where("switch_name = ?", identifier).Or("id = ?", identifier).Delete(&model.SwitchConfig{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+func (r *ResourceOperation) DeleteResource(identifier string, resourceType string) error {
+	switch resourceType {
+	case constants.ResourceTypeLinux:
+		return r.DeleteLinuxResource(identifier)
+	case constants.ResourceTypeRouter:
+		return r.DeleteRouterResource(identifier)
+	case constants.ResourceTypeWindows:
+		return r.DeleteWindowsResource(identifier)
+	case constants.ResourceTypeDocker:
+		return r.DeleteDockerResource(identifier)
+	case constants.ResourceTypeDatabase:
+		return r.DeleteDatabaseResource(identifier)
+	case constants.ResourceTypeSwitch:
+		return r.DeleteSwitchResource(identifier)
+	default:
+		return errors.New("unknown resource type: " + resourceType)
+	}
+}
 
 // GetResourceListByRoleId 根据角色ID和资源类型获取资源列表
 func (r *ResourceOperation) GetResourceListByRoleId(roleId uint, resourceType string) ([]model.Resource, error) {
 	var resourceList []model.Resource
 
 	// 根据资源类型查询对应的资源配置
-	fmt.Println("roleId:", roleId, "resourceType:", resourceType)
+	log.Info().Msgf("roleId: %d, resourceType: %s", roleId, resourceType)
 	switch resourceType {
 	case constants.ResourceTypeLinux:
 		var linuxConfigs []*model.LinuxConfig
@@ -152,10 +335,10 @@ func (r *ResourceOperation) GetResourceListByRoleId(roleId uint, resourceType st
 			}
 			linuxConfigs = append(linuxConfigs, &linuxConfig)
 		}
-		fmt.Println(linuxConfigs)
+		log.Info().Msgf("linuxConfigs: %v", linuxConfigs)
 		// 将具体类型的资源配置转换为 model.Resource 接口类型，并添加到 resourceList 中
 		for _, cfg := range linuxConfigs {
-			fmt.Println(cfg)
+			log.Info().Msgf("cfg: %v", cfg)
 			resourceList = append(resourceList, cfg)
 		}
 	case constants.ResourceTypeDatabase:
@@ -166,7 +349,7 @@ func (r *ResourceOperation) GetResourceListByRoleId(roleId uint, resourceType st
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(databaseConfigs)
+		log.Info().Msgf("databaseConfigs: %v", databaseConfigs)
 		// 将具体类型的资源配置转换为 model.Resource 接口类型，并添加到 resourceList 中
 		for _, cfg := range databaseConfigs {
 			resourceList = append(resourceList, cfg)

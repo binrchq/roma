@@ -2,11 +2,10 @@ package operation
 
 import (
 	"errors"
-	"fmt"
-	"log"
 
 	"bitrec.ai/roma/core/global"
 	"bitrec.ai/roma/core/model"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +42,7 @@ func (u *UserOperation) AddRoleToUser(userID uint, roleID uint) error {
 	}
 
 	if err := u.DB.Model(&user).Association("Roles").Append(&role); err != nil {
-		log.Println("AddRoleToUser error:", err)
+		log.Error().Err(err).Msgf("AddRoleToUser error")
 		return errors.New("添加角色失败")
 	}
 
@@ -57,7 +56,7 @@ func (u *UserOperation) CreateUser(user *model.User) (*model.User, error) {
 	return user, nil
 }
 
-func (u *UserOperation) GetUserByID(id uint) (*model.User, error) {
+func (u *UserOperation) GetUserByID(id uint64) (*model.User, error) {
 	user := &model.User{}
 	if err := u.DB.First(user, id).Error; err != nil {
 		return nil, err
@@ -67,7 +66,7 @@ func (u *UserOperation) GetUserByID(id uint) (*model.User, error) {
 
 func (u *UserOperation) GetUserByUsername(username string) (*model.User, error) {
 	user := &model.User{}
-	fmt.Println("username:", username)
+	log.Info().Msgf("username:%s", username)
 	if err := u.DB.Where("username = ?", username).First(user).Error; err != nil {
 		return nil, err
 	}
@@ -98,7 +97,7 @@ func (u *UserOperation) UpdateUser(user *model.User) (*model.User, error) {
 	return user, nil
 }
 
-func (u *UserOperation) DeleteUser(id uint) error {
+func (u *UserOperation) DeleteUser(id uint64) error {
 	if err := u.DB.Delete(&model.User{}, id).Error; err != nil {
 		return err
 	}
@@ -106,7 +105,7 @@ func (u *UserOperation) DeleteUser(id uint) error {
 }
 
 // 用户禁用
-func (u *UserOperation) DisabledUser(id uint) error {
+func (u *UserOperation) DisabledUser(id uint64) error {
 	if err := u.DB.Model(&model.User{}).Where("id = ?", id).Update("status", 0).Error; err != nil {
 		return err
 	}

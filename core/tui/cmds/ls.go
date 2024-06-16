@@ -12,11 +12,12 @@ import (
 	"bitrec.ai/roma/core/operation"
 	"bitrec.ai/roma/core/tui/cmds/itface"
 	"github.com/brckubo/ssh"
+	"github.com/rs/zerolog/log"
 )
 
 func init() {
-	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: &Ls{}, Weight: 50})
-	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: &Ls{}, Weight: 50})
+	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: NewLs(nil, ""), Weight: 50})
+	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: NewLs(nil, ""), Weight: 50})
 }
 
 type Ls struct {
@@ -26,80 +27,57 @@ type Ls struct {
 	sess    ssh.Session
 }
 
-func NewLs(sess ssh.Session) *Ls {
+func NewLs(sess ssh.Session, typo string) *Ls {
 	flags := &Flags{}
 	flags.AddOption("l", "list", "Display detailed information", BoolOption, false)
 	flags.AddOption("a", "all", "Display all resource", BoolOption, false)
 	flags.AddOption("h", "help", "Display this help message", BoolOption, false)
-	return &Ls{baseLen: 2, flags: flags, target: "~", sess: sess}
+	return &Ls{baseLen: 2, flags: flags, target: typo, sess: sess}
 }
 
 // Name 返回 ls 命令的名称
-func (u *Ls) Name() string {
+func (cmd *Ls) Name() string {
 	return "ls"
 }
-
 func (cmd *Ls) Execute(commands string) (interface{}, error) {
-	cp := CommandProcessor{}
 	argParts := commands[cmd.baseLen:]
-	cp.args = strings.Fields(strings.TrimSpace(argParts))
-	for len(cp.args) > 0 {
-		arg := cp.args[0]
-		switch {
-		case strings.HasPrefix(arg, "--"):
-			switch arg {
-			case "--help":
-				cmd.flags.GetOption("help").IsSet = true
-			case "--list":
-				cmd.flags.GetOption("list").IsSet = true
-			case "--all":
-				cmd.flags.GetOption("all").IsSet = true
-			default:
-				return cmd.error("unknown option: " + arg)
-			}
-			cp.shift()
-		case strings.HasPrefix(arg, "-"):
-			for _, char := range arg[1:] {
-				switch char {
-				case 'h':
-					cmd.flags.GetOption("help").IsSet = true
-				case 'l':
-					cmd.flags.GetOption("list").IsSet = true
-				case 'a':
-					cmd.flags.GetOption("all").IsSet = true
-				default:
-					return cmd.error("unknown option: " + string(char))
-				}
-			}
-			cp.shift()
-		default:
-			cmd.target = arg
-			cp.shift()
-		}
-	}
+	args := strings.Fields(strings.TrimSpace(argParts))
+
+	// Use Parse to handle the arguments and set the options in cmd.flags
+	target := cmd.flags.Parse(args)
+
 	if cmd.flags.GetOption("help").IsSet {
 		return cmd.Usage(), nil
 	}
+
 	resourceTypes := constants.GetResourceType()
-	if cmd.target == "~" || cmd.target == "" {
+	if target == "~" || cmd.target == "~" {
 		cmd.target = resourceTypes[0]
+	} else if target != "" {
+		cmd.target = target
 	}
+
 	if !sliceContains(resourceTypes, cmd.target) {
 		return cmd.error("invalid resource type: " + cmd.target)
 	}
+
+	log.Debug().Msgf("resource type: %s", cmd.target)
 	resList, err := cmd.handleResources(cmd.target)
 	if err != nil {
 		return cmd.error(err.Error())
 	}
+
 	if cmd.flags.GetOption("list").IsSet {
 		if cmd.flags.GetOption("all").IsSet {
 			return cmd.ResourceLines(resList), nil
 		}
 		return cmd.ResourceLines(resList), nil
 	}
+
 	if cmd.flags.GetOption("all").IsSet {
 		return cmd.Resources(resList), nil
 	}
+
 	return cmd.Resources(resList), nil
 }
 
@@ -107,10 +85,6 @@ func (cmd *Ls) Resources(resList []model.Resource) string {
 	// 创建一个字节缓冲区用于保存格式化后的输出
 	var buffer bytes.Buffer
 	// 使用 tabwriter 创建一个新的写入器，并设置格式化选项
-	resList = append(resList, resList...)
-	resList = append(resList, resList...)
-	resList = append(resList, resList...)
-	resList = append(resList, resList...)
 	writer := tabwriter.NewWriter(&buffer, 0, 0, 2, ' ', 0)
 	if len(resList) > 0 {
 		for _, res := range resList {
@@ -155,25 +129,17 @@ func (cmd *Ls) error(msg string) (interface{}, error) {
 	return nil, errors.New(errMsg)
 }
 
-func (u *Ls) Usage() string {
+func (cmd *Ls) Usage() string {
 	resourceTypes := constants.GetResourceType()
-	usageMsg := "Usage: ls [OPTIONS] TYPE\n"
-	usageMsg += "List the specified TYPE of resource,TYPE is " + strings.Join(resourceTypes, ",") + ", etc.\n"
-	usageMsg += "Options:\n"
+	usageMsg := cmd.flags.FormatUsagef("🍂 %s", green(cmd.Name()+" [OPTIONS] TYPE"))
+	usageMsg += cmd.flags.FormatUsagef("List the specified TYPE of resource,TYPE is %s, etc.", cyan(strings.Join(resourceTypes, ", ")))
+	usageMsg += cmd.flags.FormatUsagef("Usage:")
 
 	var buffer bytes.Buffer
 	tw := tabwriter.NewWriter(&buffer, 0, 0, 2, ' ', 0)
 	// 写入Options
-	for _, opt := range u.flags.Options {
-		switch opt.Type {
-		case BoolOption:
-			fmt.Fprintf(tw, "  -%s, --%s\t%s\n", opt.Short, opt.Long, opt.Help)
-		case StringOption:
-			fmt.Fprintf(tw, "  -%s, --%s=%s\t%s\n", opt.Short, opt.Long, opt.GetNameToUpper(), opt.Help)
-		case ListOption:
-			fmt.Fprintf(tw, "  -%s, --%s=[]%s\t%s\n", opt.Short, opt.Long, opt.GetNameToUpper(), opt.Help)
-		}
-	}
+	log.Info().Msgf("flags: %v", cmd.flags.Options)
+	tw = cmd.flags.ColorUsage(tw)
 	fmt.Fprint(tw) // 换行
 	tw.Flush()
 	return usageMsg + buffer.String()
@@ -199,6 +165,22 @@ func (cmd *Ls) handleResources(resourceType string) ([]model.Resource, error) {
 				if windowsRes, ok := res.(*model.WindowsConfig); ok {
 					resListA = append(resListA, windowsRes)
 				}
+			case constants.ResourceTypeDocker:
+				if dockerRes, ok := res.(*model.DockerConfig); ok {
+					resListA = append(resListA, dockerRes)
+				}
+			case constants.ResourceTypeDatabase:
+				if databaseRes, ok := res.(*model.DatabaseConfig); ok {
+					resListA = append(resListA, databaseRes)
+				}
+			case constants.ResourceTypeSwitch:
+				if switchRes, ok := res.(*model.SwitchConfig); ok {
+					resListA = append(resListA, switchRes)
+				}
+			case constants.ResourceTypeRouter:
+				if routerRes, ok := res.(*model.RouterConfig); ok {
+					resListA = append(resListA, routerRes)
+				}
 			}
 		}
 	}
@@ -206,9 +188,10 @@ func (cmd *Ls) handleResources(resourceType string) ([]model.Resource, error) {
 	if len(resListA) == 0 {
 		return nil, errors.New("resource of " + resourceType + " is empty")
 	}
-	if len(resListA) > 1 {
+	if len(resListA) > 0 {
 		// 将格式化后的输出写入到标准输出
 		return resListA, nil
 	}
+	log.Info().Msgf("resource of %v is only one", resListA)
 	return nil, errors.New("permission denied")
 }

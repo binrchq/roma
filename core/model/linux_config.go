@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bitrec.ai/roma/core/constants"
+	"bitrec.ai/roma/core/types"
 	"gorm.io/gorm"
 )
 
@@ -30,36 +31,13 @@ func (r *LinuxConfig) GetResource() Resource {
 	return r
 }
 
-func (l *LinuxConfig) GetConnect() []map[string]interface{} {
-	return []map[string]interface{}{
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":       l.IPv4Pub,
-			"port":       l.Port,
-			"username":   l.Username,
-			"password":   l.Password,
-			"privateKey": l.PrivateKey,
-		}}, {constants.ConnectSSH: map[string]interface{}{
-			"host":       l.IPv4Pub,
-			"port":       l.PortActual,
-			"username":   l.Username,
-			"password":   l.Password,
-			"privateKey": l.PrivateKey,
-		}},
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":       l.IPv4Priv,
-			"port":       l.PortActual,
-			"username":   l.Username,
-			"password":   l.Password,
-			"privateKey": l.PrivateKey,
-		}},
-		{constants.ConnectSSH: map[string]interface{}{
-			"host":       l.IPv6,
-			"port":       l.PortIPv6,
-			"username":   l.Username,
-			"password":   l.Password,
-			"privateKey": l.PrivateKey,
-		}},
-	}
+func (l *LinuxConfig) GetConnect() []*types.Connection {
+	connection := []*types.Connection{}
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Pub, l.Port, l.Username, l.Password, l.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Pub, l.PortActual, l.Username, l.Password, l.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Priv, l.PortActual, l.Username, l.Password, l.PrivateKey))
+	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv6, l.PortIPv6, l.Username, l.Password, l.PrivateKey))
+	return connection
 }
 
 // ID

@@ -25,9 +25,27 @@ import (
 	"github.com/brckubo/ssh"
 )
 
-type Help struct{}
+func init() {
+	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: NewHelp(), Weight: 1})
+	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: NewHelp(), Weight: 1})
+}
+func (cmd *Help) Name() string {
+	return "help"
+}
 
-func (h *Help) Execute(sess ssh.Session) {
+type Help struct {
+	baseLen int // 基础命令长度
+	flags   *Flags
+}
+
+func NewHelp() *Help {
+	return &Help{
+		baseLen: 4,
+		flags:   &Flags{},
+	}
+}
+
+func (cmd *Help) Execute(sess ssh.Session) {
 	// 将帮助信息列表按照权重进行排序
 	sort.Sort(itface.ByWeight(itface.Helpers))
 	for _, h := range itface.Helpers {
@@ -35,15 +53,7 @@ func (h *Help) Execute(sess ssh.Session) {
 	}
 }
 
-func (h *Help) Usage() string {
-	return "help - Gets more help messages for commands"
-}
-
-func (e *Help) Name() string {
-	return "help"
-}
-
-func init() {
-	itface.Helpers = append(itface.Helpers, itface.HelperWeight{Helper: &Help{}, Weight: 1})
-	itface.Commands = append(itface.Commands, itface.CommandWeight{Command: &Help{}, Weight: 1})
+func (cmd *Help) Usage() string {
+	usageMsg := cmd.flags.FormatUsageln("🍂 %s - Gets more help messages for commands", green(cmd.Name()))
+	return usageMsg
 }
