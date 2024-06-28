@@ -21,13 +21,18 @@ func SessionHandler(sess *ssh.Session) {
 	case "scp":
 		scpHandler(args, sess) //检测SCP命令执行逻辑
 	default:
-		sshHandler(sess)
+		remainingCmd, remainingArgs, err := sshd.ParseRemainingCommand(rawCmd)
+		if err != nil {
+			sshd.ErrorInfo(err, sess)
+			return
+		}
+		sshHandler(remainingCmd, remainingArgs, sess)
 	}
 }
 
-func sshHandler(sess *ssh.Session) {
+func sshHandler(remainingCmd string, remainingArgs []string, sess *ssh.Session) {
 	jps := jump.Service{}
-	jps.Run(sess)
+	jps.Run(remainingCmd, remainingArgs, sess)
 }
 
 func scpHandler(args []string, sess *ssh.Session) {

@@ -34,7 +34,7 @@ func (jps *Service) setSession(sess *ssh.Session) {
 //	}
 //
 // Run jump
-func (jps *Service) Run(sess *ssh.Session) {
+func (jps *Service) Run(remainingCmd string, remainingArgs []string, sess *ssh.Session) {
 	defer func() {
 		(*sess).Exit(0)
 	}()
@@ -58,7 +58,7 @@ func (jps *Service) Run(sess *ssh.Session) {
 	jps.setSession(sess)
 	jps.terminalUI = &tui.TUI{}
 	jps.terminalUI.SetSession(jps.sess)
-	jps.terminalUI.ShowMainMenu()
+	jps.terminalUI.ShowMainMenu(remainingCmd, remainingArgs)
 }
 
 // VarifyUser VarifyUser

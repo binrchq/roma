@@ -1,6 +1,8 @@
 package cmds
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"text/tabwriter"
 
@@ -31,18 +33,17 @@ func (cmd *Whoami) Name() string {
 	return "whoami"
 }
 
-func (cmd *Whoami) Whoami(sess ssh.Session) {
+func (cmd *Whoami) Whoami(sess ssh.Session) (string, error) {
 	op := operation.NewUserOperation()
 	userInfo, err := op.GetUserByUsername(sess.User())
 	if err != nil {
-		fmt.Fprintln(sess, "Error:", err)
-		return
+		return "", errors.New("获取用户信息失败" + sess.User())
 	}
 
 	// 使用 tabwriter 创建一个新的 tabwriter.Writer
-	// 设置 tabwriter 格式参数，以制作一个漂亮的表格
-	// 这里的 \t 表示 tab，- 表示左对齐，4 表示列之间的间隔
-	w := tabwriter.NewWriter(sess, 0, 0, 4, ' ', 0) // 去掉 AlignRight 参数
+
+	var buffer bytes.Buffer
+	w := tabwriter.NewWriter(&buffer, 0, 0, 4, ' ', 0) // 去掉 AlignRight 参数
 
 	// 将用户信息以表格形式写入到 tabwriter.Writer
 	fmt.Fprintf(w, "Username\t:%s\n", userInfo.Username)
@@ -65,6 +66,7 @@ func (cmd *Whoami) Whoami(sess ssh.Session) {
 
 	// 刷新 tabwriter.Writer，以便将缓冲区中的数据输出到 ssh.Session
 	w.Flush()
+	return buffer.String(), nil
 }
 
 func (cmd *Whoami) Usage() string {

@@ -1,20 +1,32 @@
-FROM golang:1.14.12-alpine AS builder
-RUN apk add --no-cache curl jq git build-base
-WORKDIR /opt
-RUN cd /opt
-RUN mkdir /root/.ssh
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build ./
-# CGO_ENABLED=0
-# Change go-release.action
+# 使用一个更小的基础镜像运行项目
+FROM golang:1.21.4-alpine
 
-FROM alpine:latest
-LABEL maintainer="Ai2o Kubo <gzp@bitrec@gmail.com> (https://bitrec.ai)"
-COPY --from=builder /opt/roma ./
-RUN chmod +x /roma
-RUN mkdir -p /root/.ssh
-EXPOSE 2222
-VOLUME [ "/root", "/root/.ssh"]
-CMD ["/roma"]
+# 安装 SQLite3 的依赖
+RUN apk add --no-cache sqlite-dev
+
+WORKDIR /roma
+
+# 复制go.mod和go.sum并下载依赖
+COPY ../go.mod .
+COPY ../go.sum .
+RUN go mod download
+
+# 复制整个项目到容器中
+COPY .. .
+
+# 构建应用程序
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o roma .
+
+# 设置环境变量
+ENV APP_ENV=production
+ENV ROMA_BASE_ROOT=/roma
+
+# 暴露应用程序端口
+EXPOSE 2200
+EXPOSE 7999
+
+# 运行应用程序
+ENTRYPOINT ["./roma"]
+
+# 构建完成后清理复制的文件
+RUN rm -rf ./*

@@ -1,0 +1,10 @@
+# 忽略IDE生成的文件和目录
+.vscode
+.idea
+
+# 忽略依赖库
+vendor/
+
+# 保留编译生成的执行文件和配置文件
+!roma
+!configs/config.toml

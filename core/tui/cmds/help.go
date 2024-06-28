@@ -18,6 +18,7 @@
 package cmds
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 
@@ -45,12 +46,14 @@ func NewHelp() *Help {
 	}
 }
 
-func (cmd *Help) Execute(sess ssh.Session) {
+func (cmd *Help) Execute(sess ssh.Session) (string, error) {
 	// 将帮助信息列表按照权重进行排序
 	sort.Sort(itface.ByWeight(itface.Helpers))
+	var buffer bytes.Buffer
 	for _, h := range itface.Helpers {
-		fmt.Fprintln(sess, h.Usage())
+		fmt.Fprintln(&buffer, h.Usage())
 	}
+	return buffer.String(), nil
 }
 
 func (cmd *Help) Usage() string {

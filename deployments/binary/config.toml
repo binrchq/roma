@@ -1,0 +1,122 @@
+title = 'BOKK Configs File'
+
+[api]
+gin_mode = 'release'
+host = '0.0.0.0'
+port = '7999'
+
+[common]
+language = 'zh'
+port = '2200'
+prompt = 'roma'
+
+[database]
+cdb_url = '/usr/local/roma/c.db'
+rdb_passwd = ''
+rdb_url = ''
+
+[log]
+level = 'debug'
+
+[apikey]
+prefix = 'apikey.'
+key = 'AAADAQABAAACAQDHBGKPvWEf8rUzt90AQDHBmicFv5sF/rIjjDVgkP3U'
+
+[user_1st]
+email = 'super@test.x'
+name = '超级管理员'
+nickname = 'Super'
+password = 'super001.'
+public_key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDHBGKPvWEf8rUzt90micFv5sF/rIjjDVgkP3UwFwpW+//jEkNObsG79IeEltckTZG+SCC4K2byXb5+XaJ8gJRB+q/1u7xNPgiX3Qz6o2keZz3cElLmCwSUE61KouSfzq3aV67dd1RFSt9tTNqgwfZczvAwv7K2dkwVDvayEdat2bnZmIJZz8EZTXH4lckV6H9m82SPENnEVA/s31oHLmkvEG7kDuKjnF9VVojIwEUR6CCMzYqWRxcaIgXe/+fOh5ScBB6ByUbHItJ4Iovl4YmDXO0QYYv/QajaWWyqueIIhbHbfb5yh8FPvTVr4fv77wZKlpyokdkcZcIaL4vdkHoNBzctUShxu8i+2LPcGoeHF7xFtQZ6jE9jIiLhvwZlUZaFt4CpaH9Z5hU+/5utoXKFTomLBHh71Ku3ofG5l2bPWK/+TIsoF2fLKdQqith0vjZxsZisQre7sJFpDKaXiTZXeOxkx6PNwxe5tGNMKgbZ82ImKAWYaLeNzeeSGEMeld5wLXHUyOhL3+bQhA+k2E7MPOpZF+HN5x7DpYVizwASzMQNo2To7CRDiNQhQwHZm8g4+5wcXRdTpPvInNBU+L6egWLqgvZyv9h6xxMtP8TGQhX1yS0H9v3GUjbm8eD5lLIMe0aUTPtyyytCqM8gMWSxY9mGRtIjlQiQ59IB6yYELQ== control@bitrec.ai'
+username = 'super'
+roles = "super,system,ops,ordinary,trial"
+
+[control_passport]
+service_user = 'root'
+password = ''
+resource_type = 'linux'
+passport_pub = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDHBGKPvWEf8rUzt90micFv5sF/rIjjDVgkP3UwFwpW+//jEkNObsG79IeEltckTZG+SCC4K2byXb5+XaJ8gJRB+q/1u7xNPgiX3Qz6o2keZz3cElLmCwSUE61KouSfzq3aV67dd1RFSt9tTNqgwfZczvAwv7K2dkwVDvayEdat2bnZmIJZz8EZTXH4lckV6H9m82SPENnEVA/s31oHLmkvEG7kDuKjnF9VVojIwEUR6CCMzYqWRxcaIgXe/+fOh5ScBB6ByUbHItJ4Iovl4YmDXO0QYYv/QajaWWyqueIIhbHbfb5yh8FPvTVr4fv77wZKlpyokdkcZcIaL4vdkHoNBzctUShxu8i+2LPcGoeHF7xFtQZ6jE9jIiLhvwZlUZaFt4CpaH9Z5hU+/5utoXKFTomLBHh71Ku3ofG5l2bPWK/+TIsoF2fLKdQqith0vjZxsZisQre7sJFpDKaXiTZXeOxkx6PNwxe5tGNMKgbZ82ImKAWYaLeNzeeSGEMeld5wLXHUyOhL3+bQhA+k2E7MPOpZF+HN5x7DpYVizwASzMQNo2To7CRDiNQhQwHZm8g4+5wcXRdTpPvInNBU+L6egWLqgvZyv9h6xxMtP8TGQhX1yS0H9v3GUjbm8eD5lLIMe0aUTPtyyytCqM8gMWSxY9mGRtIjlQiQ59IB6yYELQ== control@bitrec.ai'
+passport = '''-----BEGIN RSA PRIVATE KEY-----
+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
+-----END RSA PRIVATE KEY-----
+'''
+description = "default control's passport , and ops use this passport"
+
+[banner]
+show = true
+banner = '''
+      |\      _,,,---,,_
+ZZZzz /,`.-'`'    -.  ;-;;,_
+     |,4-  ) )-,_. ,\ (  `'-'
+    '---''(_/--'  `-'\_)  BOKKOOOOOooooOooo
+'''
+
+
+#多角色设计
+[[roles]]
+name = "super"
+desc = "all permissions [operation:user.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "system"
+desc = "system administrator [operation:resource.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "ops"
+desc = "system operations personnel [operation:resource.(get|list|use)]"
+
+[[roles]]
+name = "ordinary"
+desc = "system ordinary [operation:resource-(*peripheral).(get|list)]"
+
+[[roles]]
+name = "trial"
+desc = "system trial [operation:resource-(*trial).(get|list|use)]"

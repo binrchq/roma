@@ -103,6 +103,47 @@ func ParseRawCommand(command string) (string, []string, error) {
 	return parts[0], parts[1:], nil
 }
 
+// ParseRemainingCommand removes the used portion from rawCmd
+func ParseRemainingCommand(rawCmd string) (string, []string, error) {
+	// List of known SSH parameters to be removed
+	sshParams := map[string]bool{
+		"-p": true,
+		"-i": true,
+		"-l": true,
+		"-o": true,
+		"-P": true,
+	}
+
+	parts := strings.Fields(rawCmd)
+	var remainingParts []string
+	skipNext := false
+
+	for i, part := range parts {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+
+		// Check for SSH parameters
+		if _, isSSHParam := sshParams[part]; isSSHParam {
+			skipNext = true // Skip the next part which is the value of the SSH parameter
+			continue
+		}
+
+		// If not an SSH parameter, add to remaining parts
+		remainingParts = parts[i:]
+		break
+	}
+
+	if len(remainingParts) == 0 {
+		return "", nil, nil
+	}
+
+	remainingCmd := remainingParts[0]
+	remainingArgs := remainingParts[1:]
+	return remainingCmd, remainingArgs, nil
+}
+
 // ErrorInfo ErrorInfo
 func ErrorInfo(err error, sess *ssh.Session) {
 	read := color.New(color.FgRed)

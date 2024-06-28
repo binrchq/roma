@@ -83,17 +83,15 @@ func (cmd *Ls) Execute(commands string) (interface{}, error) {
 
 func (cmd *Ls) Resources(resList []model.Resource) string {
 	// 创建一个字节缓冲区用于保存格式化后的输出
-	var buffer bytes.Buffer
-	// 使用 tabwriter 创建一个新的写入器，并设置格式化选项
-	writer := tabwriter.NewWriter(&buffer, 0, 0, 2, ' ', 0)
+	nameList := []string{}
 	if len(resList) > 0 {
 		for _, res := range resList {
-			fmt.Fprintf(writer, "%s\t", res.GetName())
+			// fmt.Fprintf(writer, "%s\t", res.GetName())
+			nameList = append(nameList, res.GetName())
 		}
-		fmt.Fprintln(writer, "") // 最后一行换行
 	}
-	writer.Flush()
-	return buffer.String()
+	// writer.Flush()
+	return strings.Join(nameList, " ")
 }
 
 func (cmd *Ls) ResourceLines(resList []model.Resource) string {

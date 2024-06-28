@@ -1,0 +1,14 @@
+[Unit]
+Description=Roma Go Application
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/roma/roma --config /usr/local/roma/configs/config.toml
+WorkingDirectory=/usr/local/roma
+Environment="ROMA_BASE_ROOT=/usr/local/roma"
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
