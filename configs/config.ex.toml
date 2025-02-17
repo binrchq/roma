@@ -1,0 +1,77 @@
+
+title = 'Roma Configs File'
+
+[api]
+gin_mode = 'release'
+host = '0.0.0.0'
+port = '6999'
+
+[common]
+language = 'zh'
+port = '2200'
+prompt = 'roma'
+
+[database]
+cdb_url = '/usr/local/roma/c.db'
+rdb_passwd = ''
+rdb_url = ''
+
+[log]
+level = 'debug'
+
+[apikey]
+prefix = 'apikey.'
+key = 'AAAA2EAAHBZY26A25wOraC1c--------------------------xxx'    #接口用到的密钥
+
+[user_1st]
+email = 'super@test.x'
+name = '超级管理员'
+nickname = 'Super'
+password = 'super001.'
+public_key = '#<超级用户的私钥>'
+username = 'super'
+roles = "super,system,ops,ordinary,trial"
+
+[control_passport]
+service_user = 'root'
+password = ''
+resource_type = 'linux'
+passport_pub = '<#跳板机的公钥>'
+passport = '''<#跳板机的私钥>
+'''
+description = "default control's passport , and ops use this passport"
+
+[banner]
+show = true
+banner = '''
+       ______
+      /\     \
+     />.\_____\
+   __\  /  ___/__        _ROMA__
+  /\  \/__/\     \  ____/
+ /O \____/*?\_____\
+ \  /    \  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]
+  \/_____/\/_____/
+'''
+
+
+#多角色设计
+[[roles]]
+name = "super"
+desc = "all permissions [operation:user.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "system"
+desc = "system administrator [operation:resource.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "ops"
+desc = "system operations personnel [operation:resource.(get|list|use)]"
+
+[[roles]]
+name = "ordinary"
+desc = "system ordinary [operation:resource-(*peripheral).(get|list)]"
+
+[[roles]]
+name = "trial"
+desc = "system trial [operation:resource-(*trial).(get|list|use)]"
