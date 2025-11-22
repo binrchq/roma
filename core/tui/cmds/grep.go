@@ -3,7 +3,7 @@ package cmds
 import (
 	"strings"
 
-	"bitrec.ai/roma/core/tui/cmds/itface"
+	"binrc.com/roma/core/tui/cmds/itface"
 )
 
 func init() {

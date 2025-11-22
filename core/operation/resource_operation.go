@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
@@ -329,78 +329,195 @@ func (r *ResourceOperation) GetResourceListByRoleId(roleId uint, resourceType st
 		}
 		for _, res := range resArole {
 			var linuxConfig model.LinuxConfig
-			err := r.DB.Model(&model.LinuxConfig{}).Where("id = ?", res.ResourceID).Find(&linuxConfig).Error
+			err := r.DB.Model(&model.LinuxConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&linuxConfig).Error
 			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
 				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if linuxConfig.ID == 0 {
+				continue
 			}
 			linuxConfigs = append(linuxConfigs, &linuxConfig)
 		}
 		log.Info().Msgf("linuxConfigs: %v", linuxConfigs)
 		// 将具体类型的资源配置转换为 model.Resource 接口类型，并添加到 resourceList 中
 		for _, cfg := range linuxConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			log.Info().Msgf("cfg: %v", cfg)
 			resourceList = append(resourceList, cfg)
 		}
 	case constants.ResourceTypeDatabase:
 		var databaseConfigs []*model.DatabaseConfig
+		var resArole []*model.ResourceRole
 		err := r.DB.Model(&model.ResourceRole{}).
 			Where("role_id = ? and resource_type = ?", roleId, resourceType).
-			Find(&databaseConfigs).Error
+			Find(&resArole).Error
 		if err != nil {
 			return nil, err
+		}
+		for _, res := range resArole {
+			var databaseConfig model.DatabaseConfig
+			err := r.DB.Model(&model.DatabaseConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&databaseConfig).Error
+			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if databaseConfig.ID == 0 {
+				continue
+			}
+			databaseConfigs = append(databaseConfigs, &databaseConfig)
 		}
 		log.Info().Msgf("databaseConfigs: %v", databaseConfigs)
 		// 将具体类型的资源配置转换为 model.Resource 接口类型，并添加到 resourceList 中
 		for _, cfg := range databaseConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			resourceList = append(resourceList, cfg)
 		}
 
 	case constants.ResourceTypeWindows:
 		var windowsConfigs []*model.WindowsConfig
+		var resArole []*model.ResourceRole
 		err := r.DB.Model(&model.ResourceRole{}).
 			Where("role_id = ? and resource_type = ?", roleId, resourceType).
-			Find(&windowsConfigs).Error
+			Find(&resArole).Error
 		if err != nil {
 			return nil, err
 		}
+		for _, res := range resArole {
+			var windowsConfig model.WindowsConfig
+			err := r.DB.Model(&model.WindowsConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&windowsConfig).Error
+			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if windowsConfig.ID == 0 {
+				continue
+			}
+			windowsConfigs = append(windowsConfigs, &windowsConfig)
+		}
 		// 将配置转换为 model.Resource 接口类型的指针，并添加到 resourceList 中
 		for _, cfg := range windowsConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			resourceList = append(resourceList, cfg)
 		}
 	case constants.ResourceTypeRouter:
 		var routerConfigs []*model.RouterConfig
+		var resArole []*model.ResourceRole
 		err := r.DB.Model(&model.ResourceRole{}).
 			Where("role_id = ? and resource_type = ?", roleId, resourceType).
-			Find(&routerConfigs).Error
+			Find(&resArole).Error
 		if err != nil {
 			return nil, err
 		}
+		for _, res := range resArole {
+			var routerConfig model.RouterConfig
+			err := r.DB.Model(&model.RouterConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&routerConfig).Error
+			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if routerConfig.ID == 0 {
+				continue
+			}
+			routerConfigs = append(routerConfigs, &routerConfig)
+		}
 		// 将配置转换为 model.Resource 接口类型的指针，并添加到 resourceList 中
 		for _, cfg := range routerConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			resourceList = append(resourceList, cfg)
 		}
 	case constants.ResourceTypeDocker:
 		var dockerConfigs []*model.DockerConfig
+		var resArole []*model.ResourceRole
 		err := r.DB.Model(&model.ResourceRole{}).
 			Where("role_id = ? and resource_type = ?", roleId, resourceType).
-			Find(&dockerConfigs).Error
+			Find(&resArole).Error
 		if err != nil {
 			return nil, err
 		}
+		for _, res := range resArole {
+			var dockerConfig model.DockerConfig
+			err := r.DB.Model(&model.DockerConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&dockerConfig).Error
+			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if dockerConfig.ID == 0 {
+				continue
+			}
+			dockerConfigs = append(dockerConfigs, &dockerConfig)
+		}
 		// 将配置转换为 model.Resource 接口类型的指针，并添加到 resourceList 中
 		for _, cfg := range dockerConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			resourceList = append(resourceList, cfg)
 		}
 	case constants.ResourceTypeSwitch:
 		var switchConfigs []*model.SwitchConfig
+		var resArole []*model.ResourceRole
 		err := r.DB.Model(&model.ResourceRole{}).
 			Where("role_id = ? and resource_type = ?", roleId, resourceType).
-			Find(&switchConfigs).Error
+			Find(&resArole).Error
 		if err != nil {
 			return nil, err
 		}
+		for _, res := range resArole {
+			var switchConfig model.SwitchConfig
+			err := r.DB.Model(&model.SwitchConfig{}).Where("id = ? AND deleted_at IS NULL", res.ResourceID).First(&switchConfig).Error
+			if err != nil {
+				// 如果资源不存在或已删除，跳过
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return nil, err
+			}
+			// 再次检查 ID 是否为 0（防止零值记录）
+			if switchConfig.ID == 0 {
+				continue
+			}
+			switchConfigs = append(switchConfigs, &switchConfig)
+		}
 		// 将配置转换为 model.Resource 接口类型的指针，并添加到 resourceList 中
 		for _, cfg := range switchConfigs {
+			// 过滤已删除的资源
+			if cfg.DeletedAt.Valid {
+				continue
+			}
 			resourceList = append(resourceList, cfg)
 		}
 	default:

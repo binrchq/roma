@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/types"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/types"
 	"gorm.io/gorm"
 )
 

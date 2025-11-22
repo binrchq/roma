@@ -1,0 +1,349 @@
+# ============================================================================
+# Drone CI/CD Pipeline Configuration
+# ============================================================================
+# 
+# 配置文件按功能模块组织：
+#   1. Build Pipelines    - 构建步骤（demo, prod 环境的镜像构建）
+#   2. Test Pipeline     - 测试环境完整流程（构建 + 部署）
+#   3. Deploy Pipelines  - 部署步骤（demo, prod 环境的部署）
+#   4. Secret Definitions - 所有 Secrets 定义
+#
+# ----------------------------------------------------------------------------
+# Production Environment - Build Pipeline
+# ----------------------------------------------------------------------------
+---
+kind: pipeline
+type: kubernetes
+name: prod-build-roma
+
+trigger:
+  event:
+    - tag
+
+steps:
+  - name: build backend image
+    image: plugins/docker
+    settings:
+      dockerfile: deployment/Dockerfile.backend
+      context: .
+      repo: registry.cn-hongkong.aliyuncs.com/binrc/roma-backend
+      registry: registry.cn-hongkong.aliyuncs.com
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      tags:
+        - ${DRONE_TAG}
+        - latest
+
+---
+kind: pipeline
+type: kubernetes
+name: prod-deploy-roma
+
+trigger:
+  event:
+    - tag
+
+depends_on:
+  - prod-build-roma
+
+steps:
+  - name: create production secrets
+    image: docker.1ms.run/bitnami/kubectl
+    environment:
+      KUBECONFIG:
+        from_secret: kubeconfig_data
+      HOME: /root
+      ROMA_APIKEY_KEY:
+        from_secret: PROD_roma_apikey_key
+      ROMA_USER_1ST_EMAIL:
+        from_secret: PROD_roma_user_1st_email
+      ROMA_USER_1ST_PASSWORD:
+        from_secret: PROD_roma_user_1st_password
+      ROMA_USER_1ST_USERNAME:
+        from_secret: PROD_roma_user_1st_username
+      ROMA_USER_1ST_PUBLIC_KEY:
+        from_secret: PROD_roma_user_1st_public_key
+      ROMA_CONTROL_PASSPORT_PASSPORT:
+        from_secret: PROD_roma_control_passport_passport
+      ROMA_CONTROL_PASSPORT_PASSPORT_PUB:
+        from_secret: PROD_roma_control_passport_passport_pub
+      ROMA_CONTROL_PASSPORT_PASSWORD:
+        from_secret: PROD_roma_control_passport_password
+      ROMA_DATABASE_CDB_URL:
+        from_secret: PROD_roma_database_cdb_url
+    commands:
+      - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - |
+        # 确保所有变量都有值（即使 secret 不存在或值为空）
+        # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
+        ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
+        ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
+        ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
+        ROMA_USER_1ST_USERNAME="${ROMA_USER_1ST_USERNAME:-}"
+        ROMA_USER_1ST_PUBLIC_KEY="${ROMA_USER_1ST_PUBLIC_KEY:-}"
+        ROMA_CONTROL_PASSPORT_PASSPORT="${ROMA_CONTROL_PASSPORT_PASSPORT:-}"
+        ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
+        ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
+        ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
+        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
+          --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
+          --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
+          --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" \
+          --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" \
+          --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
+          --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
+          -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
+
+  - name: deploy to prod
+    image: docker.1ms.run/bitnami/kubectl
+    environment:
+      KUBECONFIG:
+        from_secret: kubeconfig_data
+      HOME: /root
+      IMAGE_TAG: ${DRONE_TAG}
+    commands:
+      - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - sed -e "s|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:latest|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:$IMAGE_TAG|g" \
+            deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.deploy.yaml
+      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.deploy.yaml -n roma
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n roma --timeout=5m
+
+
+---
+kind: pipeline
+type: kubernetes
+name: prod-deploy-roma-demo
+
+trigger:
+  event:
+    - tag
+
+depends_on:
+  - prod-build-roma
+
+steps:
+  - name: create demo secrets
+    image: docker.1ms.run/bitnami/kubectl
+    environment:
+      KUBECONFIG:
+        from_secret: kubeconfig_data
+      HOME: /root
+      ROMA_APIKEY_KEY:
+        from_secret: DEMO_roma_apikey_key
+      ROMA_USER_1ST_EMAIL:
+        from_secret: DEMO_roma_user_1st_email
+      ROMA_USER_1ST_PASSWORD:
+        from_secret: DEMO_roma_user_1st_password
+      ROMA_USER_1ST_USERNAME:
+        from_secret: DEMO_roma_user_1st_username
+      ROMA_USER_1ST_PUBLIC_KEY:
+        from_secret: DEMO_roma_user_1st_public_key
+      ROMA_CONTROL_PASSPORT_PASSPORT:
+        from_secret: DEMO_roma_control_passport_passport
+      ROMA_CONTROL_PASSPORT_PASSPORT_PUB:
+        from_secret: DEMO_roma_control_passport_passport_pub
+      ROMA_CONTROL_PASSPORT_PASSWORD:
+        from_secret: DEMO_roma_control_passport_password
+      ROMA_DATABASE_CDB_URL:
+        from_secret: DEMO_roma_database_cdb_url
+    commands:
+      - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - |
+        # 确保所有变量都有值（即使 secret 不存在或值为空）
+        # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
+        ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
+        ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
+        ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
+        ROMA_USER_1ST_USERNAME="${ROMA_USER_1ST_USERNAME:-}"
+        ROMA_USER_1ST_PUBLIC_KEY="${ROMA_USER_1ST_PUBLIC_KEY:-}"
+        ROMA_CONTROL_PASSPORT_PASSPORT="${ROMA_CONTROL_PASSPORT_PASSPORT:-}"
+        ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
+        ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
+        ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
+        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
+          --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
+          --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
+          --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" \
+          --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" \
+          --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
+          --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
+          --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
+          -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
+
+  - name: deploy to demo
+    image: docker.1ms.run/bitnami/kubectl
+    environment:
+      KUBECONFIG:
+        from_secret: kubeconfig_data
+      HOME: /root
+      IMAGE_TAG: ${DRONE_TAG}
+    commands:
+      - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - sed -e "s|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:latest|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:$IMAGE_TAG|g" \
+            deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
+      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml -n demo
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n demo --timeout=5m
+
+
+# ============================================================================
+# 4. SECRET DEFINITIONS - 所有 Secrets 定义
+# ============================================================================
+---
+kind: secret
+name: kubeconfig_data
+get:
+  path: kubeconfig-data
+  name: KUBECONFIG_DATA
+
+---
+kind: secret
+name: docker_username
+get:
+  path: docker-username
+  name: DOCKER_USERNAME
+
+---
+kind: secret
+name: docker_password
+get:
+  path: docker-password
+  name: DOCKER_PASSWORD
+
+# ============================================================================
+# Production Environment Secrets - 带 PROD_ 前缀
+# ============================================================================
+---
+kind: secret
+name: PROD_roma_apikey_key
+get:
+  path: PROD_roma-apikey-key
+  name: PROD_ROMA_APIKEY_KEY
+
+---
+kind: secret
+name: PROD_roma_user_1st_email
+get:
+  path: PROD_roma-user-1st-email
+  name: PROD_ROMA_USER_1ST_EMAIL
+
+---
+kind: secret
+name: PROD_roma_user_1st_password
+get:
+  path: PROD_roma-user-1st-password
+  name: PROD_ROMA_USER_1ST_PASSWORD
+
+---
+kind: secret
+name: PROD_roma_user_1st_username
+get:
+  path: PROD_roma-user-1st-username
+  name: PROD_ROMA_USER_1ST_USERNAME
+
+---
+kind: secret
+name: PROD_roma_user_1st_public_key
+get:
+  path: PROD_roma-user-1st-public-key
+  name: PROD_ROMA_USER_1ST_PUBLIC_KEY
+
+---
+kind: secret
+name: PROD_roma_control_passport_passport
+get:
+  path: PROD_roma-control-passport-passport
+  name: PROD_ROMA_CONTROL_PASSPORT_PASSPORT
+
+---
+kind: secret
+name: PROD_roma_control_passport_passport_pub
+get:
+  path: PROD_roma-control-passport-passport-pub
+  name: PROD_ROMA_CONTROL_PASSPORT_PASSPORT_PUB
+
+---
+kind: secret
+name: PROD_roma_control_passport_password
+get:
+  path: PROD_roma-control-passport-password
+  name: PROD_ROMA_CONTROL_PASSPORT_PASSWORD
+
+---
+kind: secret
+name: PROD_roma_database_cdb_url
+get:
+  path: PROD_roma-database-cdb-url
+  name: PROD_ROMA_DATABASE_CDB_URL
+
+# ============================================================================
+# Demo Environment Secrets - 带 DEMO_ 前缀
+# ============================================================================
+---
+kind: secret
+name: DEMO_roma_apikey_key
+get:
+  path: DEMO_roma-apikey-key
+  name: DEMO_ROMA_APIKEY_KEY
+
+---
+kind: secret
+name: DEMO_roma_user_1st_email
+get:
+  path: DEMO_roma-user-1st-email
+  name: DEMO_ROMA_USER_1ST_EMAIL
+
+---
+kind: secret
+name: DEMO_roma_user_1st_password
+get:
+  path: DEMO_roma-user-1st-password
+  name: DEMO_ROMA_USER_1ST_PASSWORD
+
+---
+kind: secret
+name: DEMO_roma_user_1st_username
+get:
+  path: DEMO_roma-user-1st-username
+  name: DEMO_ROMA_USER_1ST_USERNAME
+
+---
+kind: secret
+name: DEMO_roma_user_1st_public_key
+get:
+  path: DEMO_roma-user-1st-public-key
+  name: DEMO_ROMA_USER_1ST_PUBLIC_KEY
+
+---
+kind: secret
+name: DEMO_roma_control_passport_passport
+get:
+  path: DEMO_roma-control-passport-passport
+  name: DEMO_ROMA_CONTROL_PASSPORT_PASSPORT
+
+---
+kind: secret
+name: DEMO_roma_control_passport_passport_pub
+get:
+  path: DEMO_roma-control-passport-passport-pub
+  name: DEMO_ROMA_CONTROL_PASSPORT_PASSPORT_PUB
+
+---
+kind: secret
+name: DEMO_roma_control_passport_password
+get:
+  path: DEMO_roma-control-passport-password
+  name: DEMO_ROMA_CONTROL_PASSPORT_PASSWORD
+
+---
+kind: secret
+name: DEMO_roma_database_cdb_url
+get:
+  path: DEMO_roma-database-cdb-url
+  name: DEMO_ROMA_DATABASE_CDB_URL

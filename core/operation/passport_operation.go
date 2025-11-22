@@ -1,8 +1,8 @@
 package operation
 
 import (
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
 	"gorm.io/gorm"
 )
 

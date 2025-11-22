@@ -7,11 +7,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/model"
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/tui/cmds/itface"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/tui/cmds/itface"
+	"github.com/loganchef/ssh"
 	"github.com/rs/zerolog/log"
 )
 
@@ -51,11 +51,14 @@ func (cmd *Ls) Execute(commands string) (interface{}, error) {
 	}
 
 	resourceTypes := constants.GetResourceType()
-	if target == "~" || cmd.target == "~" {
-		cmd.target = resourceTypes[0]
-	} else if target != "" {
+	// 优先使用 Parse 返回的 target（用户输入的资源类型）
+	if target != "" && target != "~" {
 		cmd.target = target
+	} else if cmd.target == "~" || cmd.target == "" {
+		// 如果没有指定，使用默认的第一个资源类型
+		cmd.target = resourceTypes[0]
 	}
+	// 如果 cmd.target 已经设置（从 typo 参数），且 target 为空，保持 cmd.target
 
 	if !sliceContains(resourceTypes, cmd.target) {
 		return cmd.error("invalid resource type: " + cmd.target)

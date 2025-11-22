@@ -2,52 +2,190 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
-	"bitrec.ai/roma/configs"
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/initialize"
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/pkg/i18n"
-	"bitrec.ai/roma/core/routers"
-	"bitrec.ai/roma/core/services"
-	"bitrec.ai/roma/core/sshd"
-	"bitrec.ai/roma/core/utils/logger"
+	"binrc.com/roma/configs"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/initialize"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/pkg/i18n"
+	"binrc.com/roma/core/routers"
+	"binrc.com/roma/core/services"
+	"binrc.com/roma/core/sshd"
+	"binrc.com/roma/core/utils/logger"
 
-	"github.com/brckubo/ssh"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/loganchef/ssh"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
 	cfgFile string
+	rootCmd = &cobra.Command{
+		Use:   "roma",
+		Short: "Roma - 远程运维管理工具",
+		Long:  "Roma 是一个功能强大的远程运维管理工具",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			initConfig()
+			bindFlags(cmd)
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := &configs.Config{}
+			if err := viper.Unmarshal(cfg); err != nil {
+				return fmt.Errorf("failed to unmarshal config: %w", err)
+			}
+
+			global.CONFIG = cfg
+
+			LoadDatabase()
+			LoadI18n()
+			services.InitData()
+
+			startServices()
+			return nil
+		},
+	}
 )
 
 func init() {
-	flag.StringVar(&cfgFile, "c", constants.BASE_DIR+"/configs/config.toml", "path of config file.")
-	flag.Parse()
-	// 加载配置文件
-	LoadConfig()
-	// 加载数据库
-	LoadDatabase()
-	// 加载i18n
-	LoadI18n()
-	// 初始化数据
-	services.InitData()
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", constants.BASE_DIR+"/configs/config.toml", "配置文件路径")
+
+	// API 配置
+	rootCmd.PersistentFlags().String("api-host", "", "API 服务主机地址")
+	rootCmd.PersistentFlags().String("api-port", "", "API 服务端口")
+	rootCmd.PersistentFlags().String("api-gin-mode", "", "Gin 运行模式 (debug, release, test)")
+
+	// Common 配置
+	rootCmd.PersistentFlags().String("common-port", "", "SSH 服务端口")
+	rootCmd.PersistentFlags().String("common-language", "", "语言设置 (zh, en, ru)")
+	rootCmd.PersistentFlags().String("common-prompt", "", "SSH 提示符")
+	rootCmd.PersistentFlags().String("common-history-tmp-dir", "", "历史文件存储目录")
+	rootCmd.PersistentFlags().Int("common-history-tmp-max-line", 0, "最大历史记录行数")
+	rootCmd.PersistentFlags().Int("common-history-tmp-max-size", 0, "最大历史文件大小（字节）")
+
+	// Database 配置
+	rootCmd.PersistentFlags().String("database-cdb-url", "", "数据库 CDB URL")
+	rootCmd.PersistentFlags().String("database-rdb-url", "", "数据库 RDB URL")
+	rootCmd.PersistentFlags().String("database-rdb-passwd", "", "数据库 RDB 密码")
+
+	// Log 配置
+	rootCmd.PersistentFlags().String("log-level", "", "日志级别 (debug, info, warn, error)")
 }
 
 func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+		if err := viper.ReadInConfig(); err != nil {
+			log.Printf("Warning: failed to read config file %s: %v\n", cfgFile, err)
+		}
+	}
+
+	viper.SetEnvPrefix("ROMA")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.AutomaticEnv()
+
+	bindEnvVars()
+}
+
+func bindFlags(cmd *cobra.Command) {
+	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
+
+	// API 配置
+	viper.BindPFlag("api.host", cmd.PersistentFlags().Lookup("api-host"))
+	viper.BindPFlag("api.port", cmd.PersistentFlags().Lookup("api-port"))
+	viper.BindPFlag("api.gin_mode", cmd.PersistentFlags().Lookup("api-gin-mode"))
+
+	// Common 配置
+	viper.BindPFlag("common.port", cmd.PersistentFlags().Lookup("common-port"))
+	viper.BindPFlag("common.language", cmd.PersistentFlags().Lookup("common-language"))
+	viper.BindPFlag("common.prompt", cmd.PersistentFlags().Lookup("common-prompt"))
+	viper.BindPFlag("common.history_tmp_dir", cmd.PersistentFlags().Lookup("common-history-tmp-dir"))
+	viper.BindPFlag("common.history_tmp_max_line", cmd.PersistentFlags().Lookup("common-history-tmp-max-line"))
+	viper.BindPFlag("common.history_tmp_max_size", cmd.PersistentFlags().Lookup("common-history-tmp-max-size"))
+
+	// Database 配置
+	viper.BindPFlag("database.cdb_url", cmd.PersistentFlags().Lookup("database-cdb-url"))
+	viper.BindPFlag("database.rdb_url", cmd.PersistentFlags().Lookup("database-rdb-url"))
+	viper.BindPFlag("database.rdb_passwd", cmd.PersistentFlags().Lookup("database-rdb-passwd"))
+
+	// Log 配置
+	viper.BindPFlag("log.level", cmd.PersistentFlags().Lookup("log-level"))
+}
+
+func bindEnvVars() {
+	// API 配置
+	viper.BindEnv("api.gin_mode", "ROMA_API_GIN_MODE")
+	viper.BindEnv("api.host", "ROMA_API_HOST")
+	viper.BindEnv("api.port", "ROMA_API_PORT")
+
+	// Common 配置
+	viper.BindEnv("common.history_tmp_dir", "ROMA_COMMON_HISTORY_TMP_DIR")
+	viper.BindEnv("common.history_tmp_max_line", "ROMA_COMMON_HISTORY_TMP_MAX_LINE")
+	viper.BindEnv("common.history_tmp_max_size", "ROMA_COMMON_HISTORY_TMP_MAX_SIZE")
+	viper.BindEnv("common.language", "ROMA_COMMON_LANGUAGE")
+	viper.BindEnv("common.port", "ROMA_COMMON_PORT")
+	viper.BindEnv("common.prompt", "ROMA_COMMON_PROMPT")
+
+	// Database 配置
+	viper.BindEnv("database.cdb_url", "ROMA_DATABASE_CDB_URL")
+	viper.BindEnv("database.rdb_passwd", "ROMA_DATABASE_RDB_PASSWD")
+	viper.BindEnv("database.rdb_url", "ROMA_DATABASE_RDB_URL")
+
+	// Log 配置
+	viper.BindEnv("log.level", "ROMA_LOG_LEVEL")
+
+	// ApiKey 配置
+	viper.BindEnv("apikey.prefix", "ROMA_APIKEY_PREFIX")
+	viper.BindEnv("apikey.key", "ROMA_APIKEY_KEY")
+
+	// User1st 配置
+	viper.BindEnv("user_1st.email", "ROMA_USER_1ST_EMAIL")
+	viper.BindEnv("user_1st.name", "ROMA_USER_1ST_NAME")
+	viper.BindEnv("user_1st.nickname", "ROMA_USER_1ST_NICKNAME")
+	viper.BindEnv("user_1st.password", "ROMA_USER_1ST_PASSWORD")
+	viper.BindEnv("user_1st.public_key", "ROMA_USER_1ST_PUBLIC_KEY")
+	viper.BindEnv("user_1st.username", "ROMA_USER_1ST_USERNAME")
+	viper.BindEnv("user_1st.roles", "ROMA_USER_1ST_ROLES")
+
+	// ControlPassport 配置
+	viper.BindEnv("control_passport.service_user", "ROMA_CONTROL_PASSPORT_SERVICE_USER")
+	viper.BindEnv("control_passport.password", "ROMA_CONTROL_PASSPORT_PASSWORD")
+	viper.BindEnv("control_passport.resource_type", "ROMA_CONTROL_PASSPORT_RESOURCE_TYPE")
+	viper.BindEnv("control_passport.passport_pub", "ROMA_CONTROL_PASSPORT_PASSPORT_PUB")
+	viper.BindEnv("control_passport.passport", "ROMA_CONTROL_PASSPORT_PASSPORT")
+	viper.BindEnv("control_passport.description", "ROMA_CONTROL_PASSPORT_DESCRIPTION")
+
+	// Banner 配置
+	viper.BindEnv("banner.show", "ROMA_BANNER_SHOW")
+	viper.BindEnv("banner.banner", "ROMA_BANNER_BANNER")
+
+	// Title 配置
+	viper.BindEnv("title", "ROMA_TITLE")
+}
+
+func startServices() {
 	go func() {
 		go StartApiService()
 		go StartSshdService()
+		// MCP 服务器应该独立运行，由 AI 工具按需启动
+		// 不需要嵌入到 roma 主程序中
+		// go StartMCPService()
 	}()
 
 	c := make(chan os.Signal, 1)
@@ -131,56 +269,3 @@ func LoadDatabase() {
 	global.CDB = cdb
 	// global.RDB = initialize.InitRDB()
 }
-
-func LoadConfig() {
-	if err := readCfg(cfgFile); err != nil {
-		panic(err)
-	}
-}
-func readCfg(cfgPath string) error {
-	if cfgPath == "" {
-		return errors.New("config file is not given")
-	}
-	v := viper.New()
-	v.SetConfigFile(cfgPath)
-	err := v.ReadInConfig()
-	if err != nil {
-		return fmt.Errorf("Fatal error config file: %s \n", err)
-	}
-	conf := configs.NewConfig()
-	if err := v.Unmarshal(&conf); err != nil {
-		log.Println(err)
-	}
-	// if err := checkCfg(conf); err != nil {
-	// 	return err
-	// }
-	global.CONFIG = conf
-	// 热加载
-	// v.OnConfigChange(func(e fsnotify.Event) {
-	// 	fmt.Println("config file changed:", e.Name)
-	// 	if err := v.Unmarshal(&conf); err != nil {
-	// 		log.Println(err)
-	// 	}
-	// 	if err := checkCfg(conf); err != nil {
-	// 		log.Println(err)
-	// 	} else {
-	// 		global.CONFIG = conf
-	// 	}
-	// })
-	// v.WatchConfig()
-	return nil
-}
-
-// func checkCfg(c *configs.Config) error {
-// 	if c == nil {
-// 		return errors.New("config nil")
-// 	}
-// 	if c.Common == nil {
-// 		return errors.New("common section not config")
-// 	}
-// 	if c.Common.SshdListenPort == "" {
-// 		return errors.New("common listen not set")
-// 	}
-
-// 	return nil
-// }

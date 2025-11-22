@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"bitrec.ai/roma/core/model"
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/utils"
+	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
 )
 

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/utils"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -244,10 +244,17 @@ func (r *ResourceControl) DeleteResource(c *gin.Context) {
 			errMsg := fmt.Sprintf("删除数据库失败:原因.%s 数据No.%d", err.Error(), id)
 			failedMsgs = append(failedMsgs, errMsg)
 			log.Println(errMsg) // 记录错误到日志
+			// 记录审计日志（失败）
+			RecordAuditLog(c, "delete_resource", "high_risk", resourceData.Type, uint(r.ID), "",
+				fmt.Sprintf("删除资源失败: %s", err.Error()), "failed", err.Error())
 			failedCount++
 			tx.Rollback() // 回滚事务
 			continue
 		}
+
+		// 记录审计日志（成功）
+		RecordAuditLog(c, "delete_resource", "high_risk", resourceData.Type, uint(r.ID), "",
+			fmt.Sprintf("删除资源: 类型=%s, ID=%d", resourceData.Type, r.ID), "success", "")
 
 		// 如果需要，可以根据业务需求，解除资源与角色之间的关联
 		// 示例：opRes.DeleteResourceAndRoleAssociation(r.ID, resourceData.Type)
@@ -280,28 +287,272 @@ func (r *ResourceControl) DeleteResource(c *gin.Context) {
 
 func (r *ResourceControl) GetAllResource(c *gin.Context) {
 	utilG := utils.Gin{C: c}
-	var resourceData struct {
-		Type string `json:"type"`
+
+	// 从查询参数或请求体获取资源类型
+	resourceType := c.Query("type")
+	if resourceType == "" {
+		var resourceData struct {
+			Type string `json:"type"`
+		}
+		if err := c.ShouldBindJSON(&resourceData); err == nil {
+			resourceType = resourceData.Type
+		}
 	}
-	if err := c.ShouldBindJSON(&resourceData); err != nil {
-		utilG.Response(utils.ERROR, utils.ERROR, err.Error())
+
+	// 获取当前用户（从上下文）
+	userInterface, exists := c.Get("user")
+	if !exists {
+		utilG.Response(utils.ERROR, utils.ERROR, "User not found in context")
 		return
 	}
+	user, ok := userInterface.(*model.User)
+	if !ok {
+		utilG.Response(utils.ERROR, utils.ERROR, "Invalid user type")
+		return
+	}
+
 	opRes := operation.NewResourceOperation()
-	roles, err := operation.NewRoleOperation().GetAllRoles()
+	opUser := operation.NewUserOperation()
+
+	// 获取用户角色
+	roles, err := opUser.GetUserRoles(user.ID)
 	if err != nil {
-		utilG.Response(utils.ERROR, utils.ERROR, err.Error())
+		utilG.Response(utils.ERROR, utils.ERROR, "Failed to get user roles")
 		return
 	}
-	resList := []model.Resource{}
+
+	// 检查是否是 super 或 system 角色（可以查看所有资源）
+	isSuperOrSystem := false
 	for _, role := range roles {
-		resources, err := opRes.GetResourceListByRoleId(role.ID, resourceData.Type)
-		if err != nil {
-			utilG.Response(utils.ERROR, utils.ERROR, err.Error())
+		if role.Name == "super" || role.Name == "system" {
+			isSuperOrSystem = true
+			break
+		}
+	}
+
+	var resList []model.Resource
+
+	if isSuperOrSystem {
+		// super/system 角色：返回所有资源
+		if resourceType != "" {
+			// 根据资源类型获取所有资源
+			allRoles, err := operation.NewRoleOperation().GetAllRoles()
+			if err != nil {
+				utilG.Response(utils.ERROR, utils.ERROR, err.Error())
+				return
+			}
+			for _, role := range allRoles {
+				resources, err := opRes.GetResourceListByRoleId(role.ID, resourceType)
+				if err != nil {
+					continue
+				}
+				resList = append(resList, resources...)
+			}
+		} else {
+			// 获取所有类型的资源
+			resourceTypes := []string{
+				constants.ResourceTypeLinux,
+				constants.ResourceTypeWindows,
+				constants.ResourceTypeDocker,
+				constants.ResourceTypeDatabase,
+				constants.ResourceTypeRouter,
+				constants.ResourceTypeSwitch,
+			}
+			allRoles, err := operation.NewRoleOperation().GetAllRoles()
+			if err != nil {
+				utilG.Response(utils.ERROR, utils.ERROR, err.Error())
+				return
+			}
+			for _, resType := range resourceTypes {
+				for _, role := range allRoles {
+					resources, err := opRes.GetResourceListByRoleId(role.ID, resType)
+					if err != nil {
+						continue
+					}
+					resList = append(resList, resources...)
+				}
+			}
+		}
+	} else {
+		// 其他角色：只返回分配给该用户角色的资源
+		for _, role := range roles {
+			if resourceType != "" {
+				resources, err := opRes.GetResourceListByRoleId(role.ID, resourceType)
+				if err != nil {
+					continue
+				}
+				resList = append(resList, resources...)
+			} else {
+				// 获取所有类型的资源
+				resourceTypes := []string{
+					constants.ResourceTypeLinux,
+					constants.ResourceTypeWindows,
+					constants.ResourceTypeDocker,
+					constants.ResourceTypeDatabase,
+					constants.ResourceTypeRouter,
+					constants.ResourceTypeSwitch,
+				}
+				for _, resType := range resourceTypes {
+					resources, err := opRes.GetResourceListByRoleId(role.ID, resType)
+					if err != nil {
+						continue
+					}
+					resList = append(resList, resources...)
+				}
+			}
+		}
+	}
+
+	// 去重（基于资源 ID 和类型）并过滤已删除的资源
+	uniqueResources := make(map[string]model.Resource)
+	for _, res := range resList {
+		// 检查资源是否已删除
+		isDeleted := false
+		switch v := res.(type) {
+		case *model.LinuxConfig:
+			isDeleted = v.DeletedAt.Valid
+		case *model.WindowsConfig:
+			isDeleted = v.DeletedAt.Valid
+		case *model.DockerConfig:
+			isDeleted = v.DeletedAt.Valid
+		case *model.DatabaseConfig:
+			isDeleted = v.DeletedAt.Valid
+		case *model.RouterConfig:
+			isDeleted = v.DeletedAt.Valid
+		case *model.SwitchConfig:
+			isDeleted = v.DeletedAt.Valid
+		}
+		// 跳过已删除的资源
+		if isDeleted {
+			continue
+		}
+		// 使用资源名称和 ID 作为唯一键
+		key := fmt.Sprintf("%s-%d", res.GetName(), res.GetID())
+		uniqueResources[key] = res
+	}
+
+	finalList := make([]model.Resource, 0, len(uniqueResources))
+	for _, res := range uniqueResources {
+		finalList = append(finalList, res)
+	}
+
+	utilG.Response(utils.SUCCESS, utils.SUCCESS, finalList)
+}
+
+// GetResourceByID 根据 ID 获取单个资源
+func (r *ResourceControl) GetResourceByID(c *gin.Context) {
+	utilG := utils.Gin{C: c}
+
+	resourceID := c.Param("id")
+	resourceType := c.Query("type")
+	if resourceType == "" {
+		utilG.Response(utils.ERROR, utils.ERROR, "Resource type is required")
+		return
+	}
+
+	// 获取当前用户
+	userInterface, exists := c.Get("user")
+	if !exists {
+		utilG.Response(utils.ERROR, utils.ERROR, "User not found in context")
+		return
+	}
+	user, ok := userInterface.(*model.User)
+	if !ok {
+		utilG.Response(utils.ERROR, utils.ERROR, "Invalid user type")
+		return
+	}
+
+	opRes := operation.NewResourceOperation()
+	opUser := operation.NewUserOperation()
+
+	// 获取用户角色
+	roles, err := opUser.GetUserRoles(user.ID)
+	if err != nil {
+		utilG.Response(utils.ERROR, utils.ERROR, "Failed to get user roles")
+		return
+	}
+
+	// 检查是否是 super 或 system 角色
+	isSuperOrSystem := false
+	for _, role := range roles {
+		if role.Name == "super" || role.Name == "system" {
+			isSuperOrSystem = true
+			break
+		}
+	}
+
+	// 根据资源类型获取资源
+	var resource model.Resource
+	idInt, err := strconv.ParseInt(resourceID, 10, 64)
+	if err != nil {
+		utilG.Response(utils.ERROR, utils.ERROR, "Invalid resource ID")
+		return
+	}
+
+	switch resourceType {
+	case constants.ResourceTypeLinux:
+		var linuxConfig model.LinuxConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&linuxConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
 			return
 		}
-		resList = append(resList, resources...)
+		resource = &linuxConfig
+	case constants.ResourceTypeWindows:
+		var windowsConfig model.WindowsConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&windowsConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
+			return
+		}
+		resource = &windowsConfig
+	case constants.ResourceTypeDocker:
+		var dockerConfig model.DockerConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&dockerConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
+			return
+		}
+		resource = &dockerConfig
+	case constants.ResourceTypeDatabase:
+		var databaseConfig model.DatabaseConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&databaseConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
+			return
+		}
+		resource = &databaseConfig
+	case constants.ResourceTypeRouter:
+		var routerConfig model.RouterConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&routerConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
+			return
+		}
+		resource = &routerConfig
+	case constants.ResourceTypeSwitch:
+		var switchConfig model.SwitchConfig
+		if err := opRes.DB.Where("id = ?", idInt).First(&switchConfig).Error; err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "Resource not found")
+			return
+		}
+		resource = &switchConfig
+	default:
+		utilG.Response(utils.ERROR, utils.ERROR, "Unknown resource type")
+		return
 	}
-	//json
-	utilG.Response(utils.SUCCESS, utils.SUCCESS, resList)
+
+	// 如果不是 super/system 角色，检查资源是否分配给该用户
+	if !isSuperOrSystem {
+		hasAccess := false
+		for _, role := range roles {
+			var resourceRole model.ResourceRole
+			if err := opRes.DB.Where("resource_id = ? AND resource_type = ? AND role_id = ?",
+				idInt, resourceType, role.ID).First(&resourceRole).Error; err == nil {
+				hasAccess = true
+				break
+			}
+		}
+		if !hasAccess {
+			utilG.Response(utils.ERROR, utils.ERROR, "Access denied: resource not assigned to your role")
+			return
+		}
+	}
+
+	utilG.Response(utils.SUCCESS, utils.SUCCESS, resource)
 }

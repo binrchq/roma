@@ -1,8 +1,8 @@
 package cmds
 
 import (
-	"bitrec.ai/roma/core/tui/cmds/itface"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/tui/cmds/itface"
+	"github.com/loganchef/ssh"
 )
 
 func init() {

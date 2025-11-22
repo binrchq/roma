@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/utils/logger"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils/logger"
 	"github.com/fatih/color"
+	"github.com/loganchef/ssh"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -80,11 +81,23 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 	}
 
 	addr := fmt.Sprintf("%s:%d", ip, port)
-	client, err := gossh.Dial("tcp", addr, configs)
+
+	// 使用带超时的 TCP 连接（10秒超时）
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
 		logger.Logger.Error(err)
 		return nil, err
 	}
+
+	// 在 TCP 连接上建立 SSH 连接（30秒握手超时）
+	sshConn, chans, reqs, err := gossh.NewClientConn(conn, addr, configs)
+	if err != nil {
+		conn.Close()
+		logger.Logger.Error(err)
+		return nil, err
+	}
+
+	client := gossh.NewClient(sshConn, chans, reqs)
 	return client, nil
 }
 

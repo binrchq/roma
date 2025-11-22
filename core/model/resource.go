@@ -1,6 +1,6 @@
 package model
 
-import "bitrec.ai/roma/core/types"
+import "binrc.com/roma/core/types"
 
 type Resource interface {
 	GetResource() Resource

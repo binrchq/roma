@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/tui/cmds/itface"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/tui/cmds/itface"
+	"github.com/loganchef/ssh"
 )
 
 func init() {

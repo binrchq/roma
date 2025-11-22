@@ -1,11 +1,13 @@
 package middleware
 
 import (
-	"bitrec.ai/roma/core/operation"
-	"bitrec.ai/roma/core/utils"
+	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// ApiKeyAuth API Key 认证中间件
+// 验证 API Key 的有效性，但不进行权限检查
 func ApiKeyAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		utilG := utils.Gin{C: c}
@@ -23,6 +25,8 @@ func ApiKeyAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// 将 API Key 存储到上下文，供后续使用
+		c.Set("api_key", apiKey)
 		c.Next()
 	}
 }
@@ -33,11 +37,11 @@ func isValidApiKey(apiKey string) bool {
 	if err != nil {
 		return false
 	}
-	vaild, err := op.ApiKeyIsValid(apiKey)
+	valid, err := op.ApiKeyIsValid(apiKey)
 	if err != nil {
 		return false
 	}
-	if !exists || !vaild {
+	if !exists || !valid {
 		return false
 	}
 	return exists

@@ -8,7 +8,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 
-	"bitrec.ai/roma/core/utils/logger"
+	"binrc.com/roma/core/utils/logger"
 	"golang.org/x/crypto/ssh"
 )
 

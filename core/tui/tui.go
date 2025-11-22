@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/tui/cmds"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/tui/cmds"
+	"github.com/loganchef/ssh"
 
 	"github.com/fatih/color"
 
@@ -92,8 +92,20 @@ func (ui *TUI) echo_e(output string) {
 
 func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 	page := "~"
-	// Store command history
-	history := []string{"ls", "cdd", "sds", "whoami"}
+
+	// 获取当前用户名
+	username := (*ui.sess).User()
+
+	// 创建历史管理器
+	historyManager := NewHistoryManager(username)
+
+	// 从文件加载历史记录
+	history := historyManager.LoadHistory()
+
+	// 如果没有历史记录，使用默认的
+	if len(history) == 0 {
+		history = []string{"ls", "cdd", "whoami"}
+	}
 
 	// Initialize readline configuration
 	l, err := readline.NewEx(&readline.Config{
@@ -114,7 +126,7 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 	// Capture exit signals
 	l.CaptureExitSignal()
 
-	// Save initial history
+	// Save initial history to readline
 	for _, h := range history {
 		l.SaveHistory(h)
 	}
@@ -124,11 +136,18 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 		fmt.Println("执行命令:", strings.Join(append([]string{remainingCmd}, remainingArgs...), " "))
 		// 执行命令并返回结果
 		line := strings.Join(append([]string{remainingCmd}, remainingArgs...), " ")
-		output, lastErr := ui.executeCommand(l, line, page, history)
+		output, _, lastErr := ui.executeCommand(l, line, page, history)
 		if lastErr != nil {
 			ui.echo_e(lastErr.Error())
 		} else {
 			ui.echo_e(output)
+		}
+		// 保存命令到历史文件
+		if line != "" {
+			if err := historyManager.AppendHistory(line); err != nil {
+				// 记录错误但不中断执行
+				fmt.Fprintf(*ui.sess, "Warning: failed to save history: %v\n", err)
+			}
 		}
 		return
 	}
@@ -147,11 +166,20 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 
 		// Process the input command
 		line = strings.TrimSpace(line)
-		output, lastErr := ui.executeCommand(l, line, page, history)
+		output, newPage, lastErr := ui.executeCommand(l, line, page, history)
+		// Update page if it changed
+		if newPage != "" {
+			page = newPage
+		}
 		// Save the command in history
 		if line != "" {
 			history = append(history, line)
 			l.SaveHistory(line)
+			// 立即同步到文件
+			if err := historyManager.AppendHistory(line); err != nil {
+				// 记录错误但不中断执行
+				fmt.Fprintf(*ui.sess, "Warning: failed to save history: %v\n", err)
+			}
 		}
 		// Finally, print the output of the last command in the chain if there was no error
 		if lastErr == nil && output != "" {
@@ -160,7 +188,7 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 	}
 }
 
-func (ui *TUI) executeCommand(l *readline.Instance, cmd string, page string, history []string) (string, error) {
+func (ui *TUI) executeCommand(l *readline.Instance, cmd string, page string, history []string) (string, string, error) {
 
 	var output string
 	var lastErr error
@@ -212,13 +240,13 @@ func (ui *TUI) executeCommand(l *readline.Instance, cmd string, page string, his
 		// If there is an error, print it and stop the chain
 		if lastErr != nil {
 			ui.echo(color.RedString("%s", lastErr))
-			return "", lastErr
+			return "", page, lastErr
 		}
 
 		// Update previousOutput to current command's output
 		previousOutput = output
 	}
-	return previousOutput, lastErr
+	return previousOutput, page, lastErr
 }
 
 func (ui *TUI) setPrompt(prompt string) string {

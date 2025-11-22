@@ -1,8 +1,8 @@
 package jump
 
 import (
-	"bitrec.ai/roma/core/tui"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/tui"
+	"github.com/loganchef/ssh"
 )
 
 func init() {

@@ -3,7 +3,7 @@
 // import (
 // 	"fmt"
 
-// 	"github.com/brckubo/ssh"
+// 	"github.com/loganchef/ssh"
 // )
 
 //	func Help(sess ssh.Session) {
@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"sort"
 
-	"bitrec.ai/roma/core/tui/cmds/itface"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/tui/cmds/itface"
+	"github.com/loganchef/ssh"
 )
 
 func init() {

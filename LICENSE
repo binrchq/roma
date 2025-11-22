@@ -1,15 +1,145 @@
-roma - A super lightweight jumpserver service developed using the Go language.
-Copyright (C) 2024 bitrec.ai
+               roma Dual Licensing Policy
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+This software is offered under a dual-license model. You may choose
+whichever license best fits your use case — you only need to comply
+with one of them.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
+                ┌───────────────────────────────────────────────┐
+                │  AGPLv3 Open-Source License (Free)            │
+                └───────────────────────────────────────────────┘
 
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+Applicable to:
+  • Personal study and research
+  • Open-source projects
+  • Projects willing to remain fully open source
+  • Public network services that can disclose source code
+
+You may:
+  ✓ Use, study, and modify the software for free
+  ✓ Distribute unmodified or modified versions
+  ✓ Deploy internally (employees only)
+
+You must / may not:
+  ✗ If you provide the software (or a modified version) to users
+     over a network (web, API, etc.), you MUST offer them the
+     complete corresponding source code (including your changes)
+  ✗ Create and distribute closed-source derivatives
+  ✗ Embed in proprietary/commercial products without a commercial
+    license
+  ✗ Remove copyright or license notices (unless permitted by 
+    commercial license)
+
+Full AGPLv3 text: https://www.gnu.org/licenses/agpl-3.0.html
+
+                ┌───────────────────────────────────────────────┐
+                │  Commercial License (Paid)                    │
+                └───────────────────────────────────────────────┘
+
+Applicable to:
+  • Closed-source commercial development
+  • SaaS / PaaS / cloud services without source disclosure
+  • Avoiding AGPL copyleft / "viral" effect
+  • Requiring official support, SLA, or custom development
+
+You receive:
+  ✓ Full exemption from all AGPLv3 obligations
+  ✓ Right to keep your code and modifications completely closed
+  ✓ SaaS hosting without source-code disclosure
+  ✓ OEM embedding and commercial redistribution (within scope)
+  ✓ Professional technical support and legal indemnity
+  ✓ Custom development services (optional)
+
+You must:
+  • Purchase a valid commercial license from binrc.
+  • Comply with the sysinfokeeper Commercial License Agreement
+
+                How to Choose
+
+Use AGPLv3 if:
+  ✓ Your project is open source
+  ✓ You modify and publish the changes under AGPLv3
+  ✓ You only use it internally or provide source with network 
+     services
+
+Purchase Commercial License if:
+  ✗ You integrate into a closed-source product
+  ✗ You offer SaaS without disclosing source code
+  ✗ You sell proprietary software/appliances containing 
+     sysinfokeeper
+  ✗ You need official support or branding removal
+
+                Frequently Asked Questions
+
+Q1: Can I use it for free?
+A: Yes — under AGPLv3, forever, as long as you fully comply
+   (especially the network source-disclosure rule).
+
+Q2: When do I need a commercial license?
+A: You need one in any of these cases:
+    • Closed-source integration or distribution
+    • SaaS/cloud offering without source disclosure
+    • Avoiding AGPL contamination of your codebase
+    • Requiring official support, SLA, or customization
+
+Q3: What does the AGPL "network use" clause mean?
+A: If users interact with the software (or your modified 
+   version) over a network, you must provide them the 
+   complete source code.
+
+Q4: Purely internal deployment (employees only) — do I 
+    need to open source?
+A: Generally no, as long as no external users access 
+   it over the network. Consult your legal counsel for 
+   certainty.
+
+Q5: Can I evaluate under AGPLv3 first and buy commercial 
+    later?
+A: Absolutely. Most customers do exactly that.
+
+Q6: What commercial licensing models are available?
+A: • Annual subscription (updates + support included)
+    • Perpetual license (one-time fee + optional support
+      renewal)
+    • OEM / embedded license
+    • Unlimited enterprise license
+
+Q7: Is prior AGPL use a problem after buying commercial?
+A: The commercial license is forward-looking. We can help 
+   resolve any historical compliance issues if needed.
+
+            How to Apply for a Commercial License
+
+Two simple ways (choose one):
+
+1. GitHub (recommended, fastest)
+   • Open a new Issue in this repository
+   • Add the label: commercial-license
+   • Briefly describe:
+        - Company name
+        - Intended use (SaaS / embedded / internal / etc.)
+        - Expected scale (users / servers / calls per month)
+        - Desired license type (annual / perpetual / OEM /
+          enterprise)
+   • We will reply within 1 business day with quotation and
+     agreement.
+
+2. Email
+   • Send to: hello@binrc.com
+   • Subject: sysinfokeeper Commercial License Request
+   • Include the same information as above
+   • You will receive a formal quote and license agreement
+     within 24 hours.
+
+After payment, you will immediately receive:
+   • Signed Commercial License Agreement
+   • License key / certificate
+   • Official binaries (if different from public release)
+   • Private support channel (Slack / WeCom / Email)
+
+                Contact for Commercial Licensing
+
+GitHub Issue → label "commercial-license"
+Email          → hello@binrc.com
+WeChat / Phone → Add via email (enterprise customers only)
+
+We respond to all inquiries within 10 business day.

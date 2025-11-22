@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"bitrec.ai/roma/core/constants"
-	"bitrec.ai/roma/core/tui/cmds/itface"
+	"binrc.com/roma/core/constants"
+	"binrc.com/roma/core/tui/cmds/itface"
 	"github.com/rs/zerolog/log"
 )
 

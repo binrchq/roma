@@ -34,7 +34,7 @@ language switching
 ### 1. Download and compile
 
 ```sh
-git clone https://github.com/bitrecAi/roma.git
+git clone https://github.com/binrchq/roma.git
 cd roma
 go build -o roma
 ```

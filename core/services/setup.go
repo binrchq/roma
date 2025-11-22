@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
-	"bitrec.ai/roma/core/operation"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/operation"
 )
 
 // 初始化一些数据库数据

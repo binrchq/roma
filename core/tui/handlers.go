@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"bitrec.ai/roma/core/tui/cmds"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/tui/cmds"
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
+	"github.com/loganchef/ssh"
 	"github.com/rs/zerolog/log"
 )
 

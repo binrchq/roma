@@ -3,8 +3,8 @@ package services
 import (
 	"log"
 
-	"bitrec.ai/roma/core/operation"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/operation"
+	"github.com/loganchef/ssh"
 )
 
 //	func PasswordAuth(ctx ssh.Context, pass string) bool {

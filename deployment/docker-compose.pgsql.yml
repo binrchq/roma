@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: roma-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-roma}
+      - POSTGRES_USER=${POSTGRES_USER:-roma}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - roma-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roma -d roma"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  roma-backend:
+    image: binrc/roma-backend:latest
+    container_name: roma-backend
+    restart: unless-stopped
+    ports:
+      - "2200:2200"
+      - "6999:6999"
+    env_file:
+      - .env
+    volumes:
+      - roma-data:/app/data
+      - ./config.toml:/app/configs/config.toml:ro
+    environment:
+      - ROMA_BASE_ROOT=/app
+      - APP_ENV=production
+      - ROMA_DATABASE_CDB_URL=${ROMA_DATABASE_CDB_URL_PGSQL}
+    networks:
+      - roma-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6999/health"]
+    #   interval: 30s
+    #   timeout: 3s
+    #   retries: 3
+    #   start_period: 10s
+
+  roma-frontend:
+    image: binrc/roma-frontend:latest
+    container_name: roma-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - API_BASE_PATH=/api/v1
+      - BACKEND_URL=http://roma-backend:6999
+    depends_on:
+      - roma-backend
+    networks:
+      - roma-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgres-data:
+    driver: local
+  roma-data:
+    driver: local
+
+networks:
+  roma-network:
+    driver: bridge
+

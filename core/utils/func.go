@@ -1,6 +1,6 @@
 package utils
 
-import "github.com/brckubo/ssh"
+import "github.com/loganchef/ssh"
 
 // If If
 func If(condition bool, trueVal, falseVal interface{}) interface{} {

@@ -1,0 +1,241 @@
+#!/bin/bash
+
+set -e
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 脚本目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROMA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# 打印带颜色的消息
+info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+error() {
+    echo -e "${RED}❌ $1${NC}"
+    exit 1
+}
+
+# 检查命令是否存在
+check_command() {
+    if ! command -v "$1" &> /dev/null; then
+        error "$1 未安装，请先安装 $1"
+    fi
+}
+
+# 检查 Docker 环境
+check_docker() {
+    info "检查 Docker 环境..."
+    check_command docker
+    check_command docker-compose
+    
+    if ! docker info &> /dev/null; then
+        error "Docker 服务未运行，请先启动 Docker"
+    fi
+    
+    success "Docker 环境检查通过"
+}
+
+# 检查目录和文件
+check_files() {
+    info "检查必要文件..."
+    
+    if [ ! -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+        error "docker-compose.yml 不存在"
+    fi
+    
+    if [ ! -f "$SCRIPT_DIR/Dockerfile.backend" ]; then
+        error "Dockerfile.backend 不存在"
+    fi
+    
+    success "文件检查通过"
+}
+
+# 构建镜像
+build_images() {
+    local mode=$1
+    
+    info "开始构建镜像..."
+    
+    cd "$ROMA_DIR"
+    
+    case "$mode" in
+        "backend")
+            info "构建后端镜像..."
+            make docker-backend
+            ;;
+        "separate")
+            info "构建后端镜像（分离模式）..."
+            make docker-backend
+            ;;
+        "mono")
+            info "构建单体镜像..."
+            make docker-monolithic
+            ;;
+        *)
+            error "未知的构建模式: $mode"
+            ;;
+    esac
+    
+    success "镜像构建完成"
+}
+
+# 启动服务
+start_services() {
+    local mode=$1
+    
+    info "启动服务..."
+    
+    cd "$SCRIPT_DIR"
+    
+    case "$mode" in
+        "separate")
+            docker-compose up -d
+            ;;
+        "mono")
+            docker-compose -f docker-compose.monolithic.yml up -d
+            ;;
+        "mysql")
+            docker-compose -f docker-compose.mysql.yml up -d
+            ;;
+        "pgsql")
+            docker-compose -f docker-compose.pgsql.yml up -d
+            ;;
+        *)
+            error "未知的启动模式: $mode"
+            ;;
+    esac
+    
+    success "服务启动完成"
+}
+
+# 显示服务状态
+show_status() {
+    info "服务状态："
+    cd "$SCRIPT_DIR"
+    docker-compose ps 2>/dev/null || docker-compose -f docker-compose.monolithic.yml ps 2>/dev/null || true
+    
+    echo ""
+    info "访问地址："
+    echo "  - 前端界面: http://localhost"
+    echo "  - 后端 API: http://localhost:6999/api/v1"
+    echo "  - SSH 服务: localhost:2200"
+    echo ""
+    info "查看日志: make docker-logs 或 cd deployment && docker-compose logs -f"
+}
+
+# 显示帮助信息
+show_help() {
+    cat << EOF
+ROMA 快速启动脚本
+
+用法: $0 [选项] [模式]
+
+选项:
+  -h, --help      显示帮助信息
+  -b, --build     仅构建镜像，不启动服务
+  -s, --start     仅启动服务，不构建镜像
+  -c, --check     仅检查环境，不构建和启动
+
+模式:
+  separate        分离模式（默认）
+  mono            单体模式
+  mysql           MySQL 模式
+  pgsql           PostgreSQL 模式
+  backend         仅构建后端镜像
+
+示例:
+  $0                    # 快速启动（分离模式，构建+启动）
+  $0 separate           # 分离模式启动
+  $0 mono               # 单体模式启动
+  $0 -b backend         # 仅构建后端镜像
+  $0 -s separate        # 仅启动服务（分离模式）
+  $0 -c                 # 仅检查环境
+
+EOF
+}
+
+# 主函数
+main() {
+    local build_only=false
+    local start_only=false
+    local check_only=false
+    local mode="separate"
+    
+    # 解析参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -b|--build)
+                build_only=true
+                shift
+                ;;
+            -s|--start)
+                start_only=true
+                shift
+                ;;
+            -c|--check)
+                check_only=true
+                shift
+                ;;
+            separate|mono|mysql|pgsql|backend)
+                mode=$1
+                shift
+                ;;
+            *)
+                error "未知参数: $1，使用 -h 查看帮助"
+                ;;
+        esac
+    done
+    
+    # 检查环境
+    check_docker
+    check_files
+    
+    if [ "$check_only" = true ]; then
+        success "环境检查完成"
+        exit 0
+    fi
+    
+    # 构建镜像
+    if [ "$start_only" = false ]; then
+        if [ "$mode" = "backend" ]; then
+            build_images "$mode"
+        elif [ "$mode" = "separate" ]; then
+            build_images "separate"
+        elif [ "$mode" = "mono" ]; then
+            build_images "mono"
+        fi
+    fi
+    
+    # 启动服务
+    if [ "$build_only" = false ] && [ "$mode" != "backend" ]; then
+        start_services "$mode"
+        echo ""
+        show_status
+    fi
+    
+    success "完成！"
+}
+
+# 运行主函数
+main "$@"
+

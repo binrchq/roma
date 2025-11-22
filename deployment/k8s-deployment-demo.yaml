@@ -1,0 +1,321 @@
+---
+# Demo Environment Deployment (使用示例配置，不包含敏感信息)
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roma-backend
+  namespace: roma-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: roma-backend
+  template:
+    metadata:
+      labels:
+        app: roma-backend
+    spec:
+      imagePullSecrets:
+        - name: ali-hk-registry-secret
+      containers:
+        - name: roma-backend
+          imagePullPolicy: Always
+          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:demo-latest
+          ports:
+            - containerPort: 2200
+              name: ssh
+            - containerPort: 6999
+              name: api
+          env:
+            - name: ROMA_BASE_ROOT
+              value: "/app"
+            - name: APP_ENV
+              value: "production"
+            - name: ROMA_APIKEY_PREFIX
+              value: "apikey."
+            - name: ROMA_APIKEY_KEY
+              value: "DEMO_API_KEY_FOR_PUBLIC_DEMO_ONLY"
+            - name: ROMA_USER_1ST_EMAIL
+              value: "demo@roma.example.com"
+            - name: ROMA_USER_1ST_NAME
+              value: "演示管理员"
+            - name: ROMA_USER_1ST_NICKNAME
+              value: "Demo"
+            - name: ROMA_USER_1ST_PASSWORD
+              value: "demo123456"
+            - name: ROMA_USER_1ST_USERNAME
+              value: "demo"
+            - name: ROMA_USER_1ST_ROLES
+              value: "super,system,ops,ordinary,trial"
+            - name: ROMA_DATABASE_CDB_URL
+              value: "/app/data/demo.db"
+          volumeMounts:
+            - name: roma-data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/configs/config.toml
+              subPath: config.toml
+              readOnly: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 6999
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 6999
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: roma-data
+          persistentVolumeClaim:
+            claimName: roma-data-pvc
+        - name: config
+          configMap:
+            name: roma-config-demo
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roma-frontend
+  namespace: roma-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: roma-frontend
+  template:
+    metadata:
+      labels:
+        app: roma-frontend
+    spec:
+      imagePullSecrets:
+        - name: ali-hk-registry-secret
+      containers:
+        - name: roma-frontend
+          imagePullPolicy: Always
+          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-frontend:demo-latest
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: API_BASE_PATH
+              value: "/api/v1"
+            - name: BACKEND_URL
+              value: "http://roma-backend-service:6999"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: roma-backend-service
+  namespace: roma-demo
+spec:
+  selector:
+    app: roma-backend
+  ports:
+    - protocol: TCP
+      port: 2200
+      targetPort: 2200
+      name: ssh
+    - protocol: TCP
+      port: 6999
+      targetPort: 6999
+      name: api
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: roma-frontend-service
+  namespace: roma-demo
+spec:
+  selector:
+    app: roma-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      name: http
+
+---
+# PersistentVolumeClaim for data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: roma-data-pvc
+  namespace: roma-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ConfigMap for demo config.toml (示例配置)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: roma-config-demo
+  namespace: roma-demo
+data:
+  config.toml: |
+    title = 'Roma Demo Config'
+
+    [api]
+    gin_mode = 'release'
+    host = '0.0.0.0'
+    port = '6999'
+
+    [common]
+    history_tmp_dir = '/tmp/roma_history'
+    history_tmp_max_line = 1000
+    history_tmp_max_size = 10485760
+    language = 'zh'
+    port = '2200'
+    prompt = 'roma-demo'
+
+    [database]
+    cdb_url = '/app/data/demo.db'
+    rdb_passwd = ''
+    rdb_url = ''
+
+    [log]
+    level = 'info'
+
+    [apikey]
+    prefix = 'apikey.'
+    key = 'DEMO_API_KEY_FOR_PUBLIC_DEMO_ONLY'
+
+    [user_1st]
+    email = 'demo@roma.example.com'
+    name = '演示管理员'
+    nickname = 'Demo'
+    password = 'demo123456'
+    public_key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... demo-public-key'
+    username = 'demo'
+    roles = "super,system,ops,ordinary,trial"
+
+    [control_passport]
+    service_user = 'root'
+    password = ''
+    resource_type = 'linux'
+    passport_pub = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... demo-passport-pub'
+    passport = '-----BEGIN OPENSSH PRIVATE KEY-----\n...demo-private-key...\n-----END OPENSSH PRIVATE KEY-----'
+    description = "Demo control passport for public demonstration"
+
+    [banner]
+    show = true
+    banner = '''
+       ______
+      /\     \
+     />.\_____\
+   __\  /  ___/__        _ROMA__
+  /\  \/__/\     \  ____/
+ /O \____/*?\_____\
+ \  /    \  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]
+  \/_____/\/_____/
+'''
+
+    [[roles]]
+    name = "super"
+    desc = "all permissions"
+
+    [[roles]]
+    name = "system"
+    desc = "system administrator"
+
+    [[roles]]
+    name = "ops"
+    desc = "system operations personnel"
+
+    [[roles]]
+    name = "ordinary"
+    desc = "system ordinary"
+
+    [[roles]]
+    name = "trial"
+    desc = "system trial"
+
+---
+# Ingress
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-to-https
+  namespace: roma-demo
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: roma-demo-redirect-to-https@kubernetescrd
+  name: roma-demo-ingress
+  namespace: roma-demo
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: roma-demo-tls-secret
+      hosts:
+        - demo.roma.example.com
+  rules:
+    - host: demo.roma.example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: roma-frontend-service
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+

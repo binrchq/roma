@@ -1,16 +1,22 @@
 package initialize
 
 import (
+	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -23,8 +29,11 @@ func InitCDB() (*gorm.DB, error) {
 	var err error
 
 	// Determine the database type based on the URL
-	if strings.Contains(global.CONFIG.Database.CdbUrl, ".db") {
+	cdbUrl := global.CONFIG.Database.CdbUrl
+	if strings.Contains(cdbUrl, ".db") {
 		db, err = initSQLite()
+	} else if strings.Contains(cdbUrl, "postgres://") || strings.Contains(cdbUrl, "host=") {
+		db, err = initPostgreSQL()
 	} else {
 		db, err = initMySQL()
 	}
@@ -33,7 +42,7 @@ func InitCDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := migrateTables(db, &model.HostKey{}, &model.User{}, &model.Passport{}, &model.Role{}, &model.Apikey{}, &model.LinuxConfig{}, &model.WindowsConfig{}, &model.DatabaseConfig{}, &model.RouterConfig{}, &model.SwitchConfig{}, &model.ResourceRole{}, &model.Tag{}, &model.CredentialAccessLog{}, &model.AccessLog{}); err != nil {
+	if err := migrateTables(db, &model.HostKey{}, &model.User{}, &model.Passport{}, &model.Role{}, &model.Apikey{}, &model.LinuxConfig{}, &model.WindowsConfig{}, &model.DatabaseConfig{}, &model.RouterConfig{}, &model.SwitchConfig{}, &model.ResourceRole{}, &model.Tag{}, &model.CredentialAccessLog{}, &model.AccessLog{}, &model.DockerConfig{}, &model.AuditLog{}); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +76,41 @@ func initMySQL() (*gorm.DB, error) {
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open MySQL database: %s", err)
+		if strings.Contains(err.Error(), "Unknown database") || strings.Contains(err.Error(), "1049") {
+			if err := createMySQLDatabase(global.CONFIG.Database.CdbUrl); err != nil {
+				return nil, fmt.Errorf("failed to create MySQL database: %s", err)
+			}
+			db, err = gorm.Open(mysql.Open(global.CONFIG.Database.CdbUrl), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to open MySQL database after creation: %s", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to open MySQL database: %s", err)
+		}
+	}
+	return db, nil
+}
+
+func initPostgreSQL() (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(global.CONFIG.Database.CdbUrl), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
+			if err := createPostgreSQLDatabase(global.CONFIG.Database.CdbUrl); err != nil {
+				return nil, fmt.Errorf("failed to create PostgreSQL database: %s", err)
+			}
+			db, err = gorm.Open(postgres.Open(global.CONFIG.Database.CdbUrl), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to open PostgreSQL database after creation: %s", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to open PostgreSQL database: %s", err)
+		}
 	}
 	return db, nil
 }
@@ -90,5 +133,104 @@ func migrateTables(db *gorm.DB, models ...interface{}) error {
 			return fmt.Errorf("failed to migrate table[%s]: %s", tableName, err)
 		}
 	}
+	return nil
+}
+
+func createMySQLDatabase(dsn string) error {
+	re := regexp.MustCompile(`^([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)/([^?]+)`)
+	matches := re.FindStringSubmatch(dsn)
+	if len(matches) != 6 {
+		return fmt.Errorf("invalid MySQL DSN format")
+	}
+
+	user := matches[1]
+	password := matches[2]
+	host := matches[3]
+	port := matches[4]
+	dbName := matches[5]
+
+	serverDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/", user, password, host, port)
+	db, err := sql.Open("mysql", serverDSN)
+	if err != nil {
+		return fmt.Errorf("failed to connect to MySQL server: %s", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName))
+	if err != nil {
+		return fmt.Errorf("failed to create database: %s", err)
+	}
+
+	log.Info().Msgf("MySQL database '%s' created successfully", dbName)
+	return nil
+}
+
+func createPostgreSQLDatabase(dsn string) error {
+	var user, password, host, port, dbName string
+
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		parsedURL, err := url.Parse(dsn)
+		if err != nil {
+			return fmt.Errorf("invalid PostgreSQL URL format: %s", err)
+		}
+
+		user = parsedURL.User.Username()
+		password, _ = parsedURL.User.Password()
+		host = parsedURL.Hostname()
+		port = parsedURL.Port()
+		if port == "" {
+			port = "5432"
+		}
+		dbName = strings.TrimPrefix(parsedURL.Path, "/")
+	} else {
+		re := regexp.MustCompile(`host=([^\s]+)`)
+		if matches := re.FindStringSubmatch(dsn); len(matches) > 1 {
+			host = matches[1]
+		}
+
+		re = regexp.MustCompile(`port=(\d+)`)
+		if matches := re.FindStringSubmatch(dsn); len(matches) > 1 {
+			port = matches[1]
+		} else {
+			port = "5432"
+		}
+
+		re = regexp.MustCompile(`user=([^\s]+)`)
+		if matches := re.FindStringSubmatch(dsn); len(matches) > 1 {
+			user = matches[1]
+		}
+
+		re = regexp.MustCompile(`password=([^\s]+)`)
+		if matches := re.FindStringSubmatch(dsn); len(matches) > 1 {
+			password = matches[1]
+		}
+
+		re = regexp.MustCompile(`dbname=([^\s]+)`)
+		if matches := re.FindStringSubmatch(dsn); len(matches) > 1 {
+			dbName = matches[1]
+		}
+	}
+
+	if dbName == "" {
+		return fmt.Errorf("database name not found in DSN")
+	}
+
+	serverDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable", host, port, user, password)
+	db, err := sql.Open("postgres", serverDSN)
+	if err != nil {
+		return fmt.Errorf("failed to connect to PostgreSQL server: %s", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			log.Info().Msgf("PostgreSQL database '%s' already exists", dbName)
+			return nil
+		}
+		return fmt.Errorf("failed to create database: %s", err)
+	}
+
+	log.Info().Msgf("PostgreSQL database '%s' created successfully", dbName)
 	return nil
 }

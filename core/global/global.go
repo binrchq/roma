@@ -3,7 +3,7 @@ package global
 import (
 	"os"
 
-	"bitrec.ai/roma/configs"
+	"binrc.com/roma/configs"
 	"github.com/redis/go-redis/v9"
 	"github.com/shirou/gopsutil/process"
 	"gorm.io/gorm"

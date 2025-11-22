@@ -24,9 +24,12 @@ type ApiConfig struct {
 }
 
 type CommonConfig struct {
-	Language string `mapstructure:"language"`
-	Port     string `mapstructure:"port"`
-	Prompt   string `mapstructure:"prompt"`
+	HistoryTmpDir     string `mapstructure:"history_tmp_dir"`
+	HistoryTmpMaxLine int    `mapstructure:"history_tmp_max_line"`
+	HistoryTmpMaxSize int    `mapstructure:"history_tmp_max_size"`
+	Language          string `mapstructure:"language"`
+	Port              string `mapstructure:"port"`
+	Prompt            string `mapstructure:"prompt"`
 }
 
 type DatabaseConfig struct {

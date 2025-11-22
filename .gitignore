@@ -23,3 +23,10 @@ vendor/*
 ./volumes
 
 configs/config.toml
+core/connect/database_cli/*
+
+# Deployment sensitive files
+deployment/.env
+deployment/credentials.txt
+.env
+!.env.example

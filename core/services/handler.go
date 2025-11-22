@@ -1,9 +1,9 @@
 package services
 
 import (
-	"bitrec.ai/roma/core/jump"
-	"bitrec.ai/roma/core/sshd"
-	"github.com/brckubo/ssh"
+	"binrc.com/roma/core/jump"
+	"binrc.com/roma/core/sshd"
+	"github.com/loganchef/ssh"
 )
 
 func SessionHandler(sess *ssh.Session) {
@@ -36,5 +36,10 @@ func sshHandler(remainingCmd string, remainingArgs []string, sess *ssh.Session) 
 }
 
 func scpHandler(args []string, sess *ssh.Session) {
-	// sshd.ExecuteSCP(args, sess)
+	// SCP 非交互式执行，直接传输文件并退出
+	err := sshd.ExecuteSCP(args, sess)
+	if err != nil {
+		sshd.ErrorInfo(err, sess)
+	}
+	(*sess).Close()
 }

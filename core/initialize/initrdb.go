@@ -1,7 +1,7 @@
 package initialize
 
 import (
-	"bitrec.ai/roma/core/global"
+	"binrc.com/roma/core/global"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -3,8 +3,8 @@ package operation
 import (
 	"time"
 
-	"bitrec.ai/roma/core/global"
-	"bitrec.ai/roma/core/model"
+	"binrc.com/roma/core/global"
+	"binrc.com/roma/core/model"
 	"gorm.io/gorm"
 )
 
@@ -75,4 +75,13 @@ func (a *ApikeyOperation) GetApiKeyById(id uint) (*model.Apikey, error) {
 func (a *ApikeyOperation) ExpiresApikeyById(id uint) error {
 	expiredTime := time.Now()
 	return a.DB.Model(&model.Apikey{}).Where("id = ?", id).Update("expires_at", expiredTime).Error
+}
+
+// 根据Key获取API Key
+func (a *ApikeyOperation) GetApiKeyByKey(apiKey string) (*model.Apikey, error) {
+	apikey := &model.Apikey{}
+	if err := a.DB.Where("api_key = ?", apiKey).First(apikey).Error; err != nil {
+		return nil, err
+	}
+	return apikey, nil
 }

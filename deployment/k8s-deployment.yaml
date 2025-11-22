@@ -1,0 +1,349 @@
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roma-backend
+  namespace: roma
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: roma-backend
+  template:
+    metadata:
+      labels:
+        app: roma-backend
+    spec:
+      imagePullSecrets:
+        - name: ali-hk-registry-secret
+      containers:
+        - name: roma-backend
+          imagePullPolicy: Always
+          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:latest
+          ports:
+            - containerPort: 2200
+              name: ssh
+            - containerPort: 6999
+              name: api
+          env:
+            - name: ROMA_BASE_ROOT
+              value: "/app"
+            - name: APP_ENV
+              value: "production"
+            - name: ROMA_APIKEY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_APIKEY_KEY
+                  optional: true
+            - name: ROMA_USER_1ST_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_EMAIL
+                  optional: true
+            - name: ROMA_USER_1ST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_PASSWORD
+                  optional: true
+            - name: ROMA_USER_1ST_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_USERNAME
+                  optional: true
+            - name: ROMA_USER_1ST_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_PUBLIC_KEY
+                  optional: true
+            - name: ROMA_CONTROL_PASSPORT_PASSPORT
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_CONTROL_PASSPORT_PASSPORT
+                  optional: true
+            - name: ROMA_CONTROL_PASSPORT_PASSPORT_PUB
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_CONTROL_PASSPORT_PASSPORT_PUB
+                  optional: true
+            - name: ROMA_CONTROL_PASSPORT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_CONTROL_PASSPORT_PASSWORD
+                  optional: true
+            - name: ROMA_DATABASE_CDB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_DATABASE_CDB_URL
+                  optional: true
+          volumeMounts:
+            - name: roma-data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/configs/config.toml
+              subPath: config.toml
+              readOnly: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 6999
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 6999
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: roma-data
+          persistentVolumeClaim:
+            claimName: roma-data-pvc
+        - name: config
+          configMap:
+            name: roma-config
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roma-frontend
+  namespace: roma
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: roma-frontend
+  template:
+    metadata:
+      labels:
+        app: roma-frontend
+    spec:
+      imagePullSecrets:
+        - name: ali-hk-registry-secret
+      containers:
+        - name: roma-frontend
+          imagePullPolicy: Always
+          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-frontend:latest
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: API_BASE_PATH
+              value: "/api/v1"
+            - name: BACKEND_URL
+              value: "http://roma-backend-service:6999"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: roma-backend-service
+  namespace: roma
+spec:
+  selector:
+    app: roma-backend
+  ports:
+    - protocol: TCP
+      port: 2200
+      targetPort: 2200
+      name: ssh
+    - protocol: TCP
+      port: 6999
+      targetPort: 6999
+      name: api
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: roma-frontend-service
+  namespace: roma
+spec:
+  selector:
+    app: roma-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      name: http
+
+---
+# PersistentVolumeClaim for data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: roma-data-pvc
+  namespace: roma
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# ConfigMap for config.toml (基础配置，敏感信息通过 Secret 注入)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: roma-config
+  namespace: roma
+data:
+  config.toml: |
+    title = 'Roma Configs File'
+
+    [api]
+    gin_mode = 'release'
+    host = '0.0.0.0'
+    port = '6999'
+
+    [common]
+    history_tmp_dir = '/tmp/roma_history'
+    history_tmp_max_line = 1000
+    history_tmp_max_size = 10485760
+    language = 'zh'
+    port = '2200'
+    prompt = 'roma'
+
+    [database]
+    # cdb_url 从环境变量 ROMA_DATABASE_CDB_URL 读取
+    cdb_url = '/app/data/c.db'
+    rdb_passwd = ''
+    rdb_url = ''
+
+    [log]
+    level = 'info'
+
+    [apikey]
+    prefix = 'apikey.'
+    # key 从环境变量 ROMA_APIKEY_KEY 读取
+
+    [user_1st]
+    # 以下配置从环境变量读取（生产环境）
+    # email, password, username, public_key 从 Secret 注入
+
+    [control_passport]
+    service_user = 'root'
+    resource_type = 'linux'
+    # passport, passport_pub, password 从 Secret 注入
+    description = "Production control passport"
+
+    [banner]
+    show = true
+    banner = '''
+       ______
+      /\     \
+     />.\_____\
+   __\  /  ___/__        _ROMA__
+  /\  \/__/\     \  ____/
+ /O \____/*?\_____\
+ \  /    \  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]
+  \/_____/\/_____/
+'''
+
+    [[roles]]
+    name = "super"
+    desc = "all permissions [operation:user.(add|delete|update|get|list)]"
+
+    [[roles]]
+    name = "system"
+    desc = "system administrator [operation:resource.(add|delete|update|get|list)]"
+
+    [[roles]]
+    name = "ops"
+    desc = "system operations personnel [operation:resource.(get|list|use)]"
+
+    [[roles]]
+    name = "ordinary"
+    desc = "system ordinary [operation:resource-(*peripheral).(get|list)]"
+
+    [[roles]]
+    name = "trial"
+    desc = "system trial [operation:resource-(*trial).(get|list|use)]"
+
+---
+# Ingress
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-to-https
+  namespace: roma
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: roma-redirect-to-https@kubernetescrd
+  name: roma-ingress
+  namespace: roma
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: roma-tls-secret
+      hosts:
+        - roma.example.com
+  rules:
+    - host: roma.example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: roma-frontend-service
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
