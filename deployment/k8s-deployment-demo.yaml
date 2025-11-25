@@ -246,16 +246,7 @@ data:
 
     [banner]
     show = true
-    banner = '''
-       ______
-      /\     \
-     />.\_____\
-   __\  /  ___/__        _ROMA__
-  /\  \/__/\     \  ____/
- /O \____/*?\_____\
- \  /    \  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]
-  \/_____/\/_____/
-'''
+    banner = "       ______\n      /\\     \\\n     />.\\_____\\\n   __\\  /  ___/__        _ROMA__\n  /\\  \\/__/\\     \\  ____/\n /O \\____/*?\\_____\\\n \\  /    \\  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]\n  \\/_____/\\/_____/"
 
     [[roles]]
     name = "super"
