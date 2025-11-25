@@ -27,7 +27,7 @@ func NewResourceOperationWithDB(db *gorm.DB) *ResourceOperation {
 	return &ResourceOperation{DB: db}
 }
 
-// 创建资源并与角色关联
+// 创建或更新资源与角色关联
 func (r *ResourceOperation) CreateResourceAndAssociate(roleId int64, resourceId int64, resourceType string) error {
 	// 将资源与角色关联
 	resourceRole := &model.ResourceRole{
@@ -35,10 +35,23 @@ func (r *ResourceOperation) CreateResourceAndAssociate(roleId int64, resourceId 
 		ResourceType: resourceType,
 		RoleID:       roleId,
 	}
-	// 保存关联到数据库
-	_, err := r.CreateResourceRole(resourceRole)
+	// 使用 FirstOrCreate，如果已存在则更新，不存在则创建
+	var existingRole model.ResourceRole
+	err := r.DB.Where("resource_id = ? AND resource_type = ?", resourceId, resourceType).First(&existingRole).Error
 	if err != nil {
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 不存在，创建新关联
+			if err := r.DB.Create(resourceRole).Error; err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		// 已存在，更新角色ID
+		if err := r.DB.Model(&existingRole).Update("role_id", roleId).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -48,6 +61,16 @@ func (r *ResourceOperation) CreateResourceRole(resource_role *model.ResourceRole
 		return nil, err
 	}
 	return resource_role, nil
+}
+
+// GetResourceRole 获取资源的角色信息
+func (r *ResourceOperation) GetResourceRole(resourceId int64, resourceType string) (*model.ResourceRole, error) {
+	var resourceRole model.ResourceRole
+	err := r.DB.Where("resource_id = ? AND resource_type = ?", resourceId, resourceType).First(&resourceRole).Error
+	if err != nil {
+		return nil, err
+	}
+	return &resourceRole, nil
 }
 
 func (r *ResourceOperation) CreateLinuxResource(resource *model.LinuxConfig) (*model.LinuxConfig, error) {

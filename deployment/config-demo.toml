@@ -1,0 +1,79 @@
+title = 'Roma Configs File'
+
+[api]
+gin_mode = 'release'
+host = '0.0.0.0'
+port = '6999'
+
+[common]
+history_tmp_dir = '/tmp/roma_history'
+history_tmp_max_line = 1000
+history_tmp_max_size = 10485760
+language = 'zh'
+port = '2200'
+prompt = 'roma'
+
+[database]
+cdb_url = '/app/data/demo.db'
+rdb_passwd = ''
+rdb_url = ''
+
+[log]
+level = 'debug'
+
+[apikey]
+prefix = 'apikey.'
+key = 'DEMO_API_KEY_FOR_PUBLIC_DEMO_ONLY'
+
+[user_1st]
+email = 'test@roma.binrc.com'
+name = '演示管理员'
+nickname = 'Demo'
+password = 'demo123456'
+public_key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC5Sodss04hKLrJUlj4EqRi/hQNvjbTPGgNlbj/5B2dsIXh7DQxkeVc0SORSzhrmEZkCewwihZgBm8TlJVzs+0qRsagT7VpoluvjV3KE6R/KbYGJKkqlBv5UpAAtRbC1ngvoRC2M7GvxdfkD9jIuupPJIzTAdCeb8Ul/JrmswErRRcee4Fyk6OmvmvNrA+QLu9w7uhjgI5819knDZRXElXbZloEL4ptHHGcYvB/v//4+IXc4IfKAh6gcaPsJG3UjhVIFAB6XzwD4buassMYpufAgVw2N/jvQ5mIwMk+49TPyg6BN9dRvueCFyMvP2MjYQ1c5TmxHi+zg2BQ4aOyujDDJaNuccI0CfaCi+ceASSN3XTC+ZV0SUNyxp+B1ByIE3D2oDhUIlNtST+WF2RdhAQX+6twRqdmseFJL68b0dHcid5jaHnpdi4QN4tXqtjItV/mVWNKJzf3HpIO64q+nEhl8xc8Wfnxw4vbtT+ER/+bL596PN6HcDqcQcOFa9SKLzV0pmJEJUBM6GYVlLnY9gZlbLybeYqGYj3uym2cu64S9kCDtVtXsDwKmaWq99qdYKH7rby5S9JJyVQIpTnEG2ynE0SeWS5fr3al6cfo7aGgsH1RCXFvGIJCQhJDPLh3cOq3RoS4+viOW8xuW2glnB9uf9GBzdu7BQzVBH3SLcSxhw== demo@roma.binrc.com'
+username = 'demo'
+roles = "super,system,ops,ordinary,trial"
+
+[control_passport]
+service_user = 'root'
+password = ''
+resource_type = 'linux'
+passport_pub = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC5Sodss04hKLrJUlj4EqRi/hQNvjbTPGgNlbj/5B2dsIXh7DQxkeVc0SORSzhrmEZkCewwihZgBm8TlJVzs+0qRsagT7VpoluvjV3KE6R/KbYGJKkqlBv5UpAAtRbC1ngvoRC2M7GvxdfkD9jIuupPJIzTAdCeb8Ul/JrmswErRRcee4Fyk6OmvmvNrA+QLu9w7uhjgI5819knDZRXElXbZloEL4ptHHGcYvB/v//4+IXc4IfKAh6gcaPsJG3UjhVIFAB6XzwD4buassMYpufAgVw2N/jvQ5mIwMk+49TPyg6BN9dRvueCFyMvP2MjYQ1c5TmxHi+zg2BQ4aOyujDDJaNuccI0CfaCi+ceASSN3XTC+ZV0SUNyxp+B1ByIE3D2oDhUIlNtST+WF2RdhAQX+6twRqdmseFJL68b0dHcid5jaHnpdi4QN4tXqtjItV/mVWNKJzf3HpIO64q+nEhl8xc8Wfnxw4vbtT+ER/+bL596PN6HcDqcQcOFa9SKLzV0pmJEJUBM6GYVlLnY9gZlbLybeYqGYj3uym2cu64S9kCDtVtXsDwKmaWq99qdYKH7rby5S9JJyVQIpTnEG2ynE0SeWS5fr3al6cfo7aGgsH1RCXFvGIJCQhJDPLh3cOq3RoS4+viOW8xuW2glnB9uf9GBzdu7BQzVBH3SLcSxhw== demo@roma.binrc.com'
+passport = '''-----BEGIN OPENSSH PRIVATE KEY-----\n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\n-----END OPENSSH PRIVATE KEY-----
+'''
+description = "Demo control passport for public demonstration"
+
+[banner]
+show = true
+banner = '''
+       ______
+      /\     \
+     />.\_____\
+   __\  /  ___/__        _ROMA__
+  /\  \/__/\     \  ____/
+ /O \____/*?\_____\
+ \  /    \  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]
+  \/_____/\/_____/
+'''
+
+
+#多角色设计
+[[roles]]
+name = "super"
+desc = "all permissions [operation:user.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "system"
+desc = "system administrator [operation:resource.(add|delete|update|get|list)]"
+
+[[roles]]
+name = "ops"
+desc = "system operations personnel [operation:resource.(get|list|use)]"
+
+[[roles]]
+name = "ordinary"
+desc = "system ordinary [operation:resource-(*peripheral).(get|list)]"
+
+[[roles]]
+name = "trial"
+desc = "system trial [operation:resource-(*trial).(get|list|use)]"

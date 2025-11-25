@@ -11,6 +11,10 @@ func SetupRouter() *gin.Engine {
 	// 使用中间件
 	r.Use(gin.Recovery()) // 恢复从任何恐慌中恢复，如果有的话
 
+	// 健康检查端点 - 不需要认证，用于 Docker/K8s 健康检查
+	systemController := api.NewSystemController()
+	r.GET("/health", systemController.GetHealth)
+
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
 	{

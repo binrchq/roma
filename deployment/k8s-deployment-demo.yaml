@@ -21,7 +21,7 @@ spec:
       containers:
         - name: roma-backend
           imagePullPolicy: Always
-          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:demo-latest
+          image: registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest
           ports:
             - containerPort: 2200
               name: ssh
@@ -110,7 +110,7 @@ spec:
       containers:
         - name: roma-frontend
           imagePullPolicy: Always
-          image: registry.cn-hongkong.aliyuncs.com/binrc/roma-frontend:demo-latest
+          image: registry.cn-hongkong.aliyuncs.com/binrchq/roma-web:latest
           ports:
             - containerPort: 80
               name: http
@@ -304,18 +304,18 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-    - secretName: roma-demo-tls-secret
+    - secretName: binrc-tls-secret
       hosts:
-        - demo.roma.example.com
+        - roma-demo-api.binrc.com
   rules:
-    - host: demo.roma.example.com
+    - host: roma-demo-api.binrc.com
       http:
         paths:
           - backend:
               service:
-                name: roma-frontend-service
+                name: roma-backend-service
                 port:
-                  number: 80
+                  number: 6999
             path: /
             pathType: Prefix
 

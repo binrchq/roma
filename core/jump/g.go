@@ -1,6 +1,8 @@
 package jump
 
 import (
+	"fmt"
+
 	"binrc.com/roma/core/tui"
 	"github.com/loganchef/ssh"
 )
@@ -36,6 +38,10 @@ func (jps *Service) setSession(sess *ssh.Session) {
 // Run jump
 func (jps *Service) Run(remainingCmd string, remainingArgs []string, sess *ssh.Session) {
 	defer func() {
+		if r := recover(); r != nil {
+			// 记录 panic 信息，但不立即退出，尝试恢复
+			fmt.Fprintf(*sess, "\n错误: %v\n", r)
+		}
 		(*sess).Exit(0)
 	}()
 

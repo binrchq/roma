@@ -41,36 +41,36 @@ func listFiles(path string) func(string) []string {
 	}
 }
 
+// 动态获取资源类型列表用于自动完成
+func getResourceTypes() []string {
+	return constants.GetResourceType()
+}
+
 var completer = readline.NewPrefixCompleter(
-	readline.PcItem("mode",
-		readline.PcItem("vi"),
-		readline.PcItem("emacs"),
+	readline.PcItem("ls",
+		readline.PcItem("-h", readline.PcItem("--help")),
+		readline.PcItem("-a", readline.PcItem("--all")),
+		readline.PcItem("-l", readline.PcItem("--list")),
+		readline.PcItemDynamic(func(line string) []string {
+			return getResourceTypes()
+		}),
 	),
-	readline.PcItem("login"),
-	readline.PcItem("say",
-		readline.PcItemDynamic(listFiles("./"),
-			readline.PcItem("with",
-				readline.PcItem("following"),
-				readline.PcItem("items"),
-			),
-		),
-		readline.PcItem("hello"),
-		readline.PcItem("bye"),
+	readline.PcItem("use",
+		readline.PcItem("-h", readline.PcItem("--help")),
+		readline.PcItemDynamic(func(line string) []string {
+			types := getResourceTypes()
+			types = append(types, "~")
+			return types
+		}),
 	),
-	readline.PcItem("setprompt"),
-	readline.PcItem("setpassword"),
-	readline.PcItem("bye"),
 	readline.PcItem("help"),
-	readline.PcItem("go",
-		readline.PcItem("build", readline.PcItem("-o"), readline.PcItem("-v")),
-		readline.PcItem("install",
-			readline.PcItem("-v"),
-			readline.PcItem("-vv"),
-			readline.PcItem("-vvv"),
-		),
-		readline.PcItem("test"),
-	),
-	readline.PcItem("sleep"),
+	readline.PcItem("whoami"),
+	readline.PcItem("clear"),
+	readline.PcItem("history"),
+	readline.PcItem("grep"),
+	readline.PcItem("awk"),
+	readline.PcItem("quit"),
+	readline.PcItem("exit"),
 )
 
 func filterInput(r rune) (rune, bool) {
@@ -93,6 +93,10 @@ func (ui *TUI) echo_e(output string) {
 func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 	page := "~"
 
+	// 强制启用颜色输出（在 Docker 容器中也需要颜色）
+	// fatih/color 库默认会检测是否为 TTY，在 Docker 中可能被禁用
+	color.NoColor = false
+
 	// 获取当前用户名
 	username := (*ui.sess).User()
 
@@ -108,6 +112,9 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 	}
 
 	// Initialize readline configuration
+	// 在 Docker 容器中，readline 可能检测不到终端特性
+	// 关键：确保 Stderr 被正确设置，readline 使用 Stderr 显示提示符和输入字符
+	// 如果 Stderr 未设置或设置不正确，提示符和输入字符将不会显示
 	l, err := readline.NewEx(&readline.Config{
 		Prompt:              "",
 		AutoComplete:        completer,
@@ -117,9 +124,14 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 		FuncFilterInputRune: filterInput,
 		Stdin:               *ui.sess,
 		Stdout:              *ui.sess,
+		Stderr:              *ui.sess, // readline 使用 Stderr 显示提示符和输入，这在 Docker 容器中尤其重要
 	})
 	if err != nil {
-		panic(err)
+		// 在 Docker 容器中，如果 readline 初始化失败，输出错误信息并返回
+		// 而不是 panic，这样可以避免会话立即关闭
+		fmt.Fprintf(*ui.sess, "错误: 无法初始化终端: %v\n", err)
+		fmt.Fprintf(*ui.sess, "提示: 请确保使用 -t 参数连接 SSH (ssh -t user@host)\n")
+		return
 	}
 	defer l.Close()
 
@@ -152,7 +164,11 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 		return
 	}
 	// Main loop to read and process input
-	l.SetPrompt(ui.setPrompt(page))
+	// 只在首次设置提示符时显示 banner 和命令列表
+	promptStr := ui.setPrompt(page, true)
+	l.SetPrompt(promptStr)
+	// 在 Docker 容器中，刷新以确保提示符立即显示
+	l.Refresh()
 	for {
 		line, err := l.Readline()
 		if err == readline.ErrInterrupt {
@@ -168,8 +184,12 @@ func (ui *TUI) ShowMenu(remainingCmd string, remainingArgs []string) {
 		line = strings.TrimSpace(line)
 		output, newPage, lastErr := ui.executeCommand(l, line, page, history)
 		// Update page if it changed
-		if newPage != "" {
+		if newPage != "" && newPage != page {
 			page = newPage
+			// 页面改变时更新提示符（但不重复显示 banner）
+			promptStr = ui.setPrompt(page, false)
+			l.SetPrompt(promptStr)
+			l.Refresh() // 刷新 readline 以显示新的提示符
 		}
 		// Save the command in history
 		if line != "" {
@@ -249,17 +269,20 @@ func (ui *TUI) executeCommand(l *readline.Instance, cmd string, page string, his
 	return previousOutput, page, lastErr
 }
 
-func (ui *TUI) setPrompt(prompt string) string {
-	if prompt == "~" {
-		if global.CONFIG.Banner.Show {
-			ui.echo(color.GreenString(global.CONFIG.Banner.Banner))
-		}
-		ui.echo((&CReader{}).AllCommandName())
-	} else {
-		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		if asciiSlice, exists := constants.AsciiPrompts[prompt]; exists {
-			randomIndex := rng.Intn(len(asciiSlice)) // Randomly select an ASCII art index
-			ui.echo_e(color.GreenString(asciiSlice[randomIndex]))
+func (ui *TUI) setPrompt(prompt string, showBanner bool) string {
+	// 只在首次显示时输出 banner 和命令列表
+	if showBanner {
+		if prompt == "~" {
+			if global.CONFIG.Banner.Show {
+				ui.echo(color.GreenString(global.CONFIG.Banner.Banner))
+			}
+			ui.echo((&CReader{}).AllCommandName())
+		} else {
+			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+			if asciiSlice, exists := constants.AsciiPrompts[prompt]; exists {
+				randomIndex := rng.Intn(len(asciiSlice)) // Randomly select an ASCII art index
+				ui.echo_e(color.GreenString(asciiSlice[randomIndex]))
+			}
 		}
 	}
 	user := color.WhiteString((*ui.sess).User())

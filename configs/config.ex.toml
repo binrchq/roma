@@ -9,8 +9,7 @@ port = '6999'
 [common]
 language = 'zh'
 port = '2200'
-prompt = 'roma'
-# 历史缓存配置
+prompt = 'roma'                            # 历史缓存配置
 history_tmp_dir = '/tmp/roma_history'      # 历史文件存储目录
 history_tmp_max_line = 1000                # 最大历史记录行数
 history_tmp_max_size = 10485760            # 最大历史文件大小（字节），默认10MB
@@ -22,15 +21,6 @@ rdb_url = ''
 
 [log]
 level = 'debug'
-
-# MCP 服务器配置
-# 注意：MCP 服务器（mcp/server/roma-mcp-server）是独立运行的，由 AI 工具按需启动
-# 不需要在 roma 主程序中启动 MCP 服务
-# AI 工具（如 Claude Desktop、Ollama 等）会通过 stdio 与 MCP 服务器通信
-
-# [mcp]
-# enable = false                # MCP 服务不嵌入主程序，由 AI 工具独立启动
-# 如果需要在 roma 主程序中启动 MCP 服务（非标准用法），可以启用此配置
 
 [apikey]
 prefix = 'apikey.'

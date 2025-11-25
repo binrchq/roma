@@ -13,11 +13,11 @@ import (
 type WindowsConfig struct {
 	ID          int64          `gorm:"primary_key;column:id" json:"id"`                         // Windows配置的唯一标识，作为主键
 	Hostname    string         `gorm:"type:varchar(255);column:hostname" json:"hostname"`       // Windows主机名
-	Port        int            `gorm:"type:int(11);column:port" json:"port"`                    // RDP端口
+	Port        int            `gorm:"type:integer;column:port" json:"port"`                    // RDP端口
 	IPv4Pub     string         `gorm:"type:varchar(255);column:ipv4_pub" json:"ipv4_pub"`       // 公网IPv4地址
 	IPv4Priv    string         `gorm:"type:varchar(255);column:ipv4_priv" json:"ipv4_priv"`     // 内网IPv4地址
 	IPv6        string         `gorm:"type:varchar(255);column:ipv6" json:"ipv6"`               // IPv6地址
-	PortIPv6    int            `gorm:"type:int(11);column:port_ipv6" json:"port_ipv6"`          // RDP端口IPv6
+	PortIPv6    int            `gorm:"type:integer;column:port_ipv6" json:"port_ipv6"`          // RDP端口IPv6
 	Password    string         `gorm:"type:varchar(255);column:password" json:"password"`       // RDP密码
 	Username    string         `gorm:"type:varchar(255);column:username" json:"username"`       // RDP用户名
 	Description string         `gorm:"type:varchar(255);column:description" json:"description"` // Windows配置描述

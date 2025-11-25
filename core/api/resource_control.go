@@ -120,13 +120,12 @@ func (r *ResourceControl) UpdateResource(c *gin.Context) {
 	var resourceData struct {
 		Type string            `json:"type"`
 		Data []json.RawMessage `json:"data"` // 使用 json.RawMessage 保存未解码的 JSON 字符串
+		Role string            `json:"role"` // 可选的角色名称
 	}
 	if err := c.ShouldBindJSON(&resourceData); err != nil {
 		utilG.Response(utils.ERROR, utils.ERROR, err.Error())
 		return
 	}
-	// 检查 role 参数是否为空，如果为空，则设置默认值为 "ops"
-	roleName := "ops"
 	// 开启事务
 	tx := global.GetDB().Begin()
 	if tx.Error != nil {
@@ -179,26 +178,29 @@ func (r *ResourceControl) UpdateResource(c *gin.Context) {
 			continue
 		}
 
-		// 绑定资源角色
-		role, err := opRole.GetRoleByName(roleName)
-		if err != nil {
-			errMsg := fmt.Sprintf("获取角色失败:原因.%s 数据No.%d", err.Error(), id)
-			failedMsgs = append(failedMsgs, errMsg)
-			log.Println(errMsg) // 记录错误到日志
-			failedCount++
-			tx.Rollback() // 回滚事务
-			continue
-		}
+		// 如果提供了角色信息，则更新资源角色关联（可选）
+		if resourceData.Role != "" {
+			role, err := opRole.GetRoleByName(resourceData.Role)
+			if err != nil {
+				errMsg := fmt.Sprintf("获取角色失败:原因.%s 数据No.%d", err.Error(), id)
+				failedMsgs = append(failedMsgs, errMsg)
+				log.Println(errMsg) // 记录错误到日志
+				failedCount++
+				tx.Rollback() // 回滚事务
+				continue
+			}
 
-		err = opRes.CreateResourceAndAssociate(int64(role.ID), resModel.GetID(), resourceData.Type)
-		if err != nil {
-			errMsg := fmt.Sprintf("资源赋值失败:原因.%s 数据No.%d", err.Error(), id)
-			failedMsgs = append(failedMsgs, errMsg)
-			log.Println(errMsg) // 记录错误到日志
-			failedCount++
-			tx.Rollback() // 回滚事务
-			continue
+			err = opRes.CreateResourceAndAssociate(int64(role.ID), resModel.GetID(), resourceData.Type)
+			if err != nil {
+				errMsg := fmt.Sprintf("资源赋值失败:原因.%s 数据No.%d", err.Error(), id)
+				failedMsgs = append(failedMsgs, errMsg)
+				log.Println(errMsg) // 记录错误到日志
+				failedCount++
+				tx.Rollback() // 回滚事务
+				continue
+			}
 		}
+		// 如果没有提供角色信息，则保持现有关联不变
 	}
 
 	if failedCount > 0 {
@@ -554,5 +556,24 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 		}
 	}
 
-	utilG.Response(utils.SUCCESS, utils.SUCCESS, resource)
+	// 获取资源的角色信息
+	var resourceRole model.ResourceRole
+	var roleInfo *model.Role
+	if err := opRes.DB.Where("resource_id = ? AND resource_type = ?", idInt, resourceType).First(&resourceRole).Error; err == nil {
+		opRole := operation.NewRoleOperation()
+		role, err := opRole.GetRoleByID(uint64(resourceRole.RoleID))
+		if err == nil {
+			roleInfo = role
+		}
+	}
+
+	// 构建响应，包含资源信息和角色信息
+	response := map[string]interface{}{
+		"resource": resource,
+	}
+	if roleInfo != nil {
+		response["role"] = roleInfo
+	}
+
+	utilG.Response(utils.SUCCESS, utils.SUCCESS, response)
 }

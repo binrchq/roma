@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -210,9 +211,32 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 		// 获取用户
 		user, err := GetUserFromContext(c)
 		if err != nil {
-			utilG.Response(utils.ERROR, utils.ERROR, "Authentication required")
+			utilG.Response(http.StatusUnauthorized, utils.ERROR, "Authentication required")
 			c.Abort()
 			return
+		}
+
+		// 检查是否是访问自己的信息（/me 路径）
+		// 用户总是可以访问和更新自己的信息
+		path := c.Request.URL.Path
+		if strings.HasSuffix(path, "/me") {
+			// 访问自己的信息，直接允许
+			c.Set("user", user)
+			c.Next()
+			return
+		}
+
+		// 检查是否是更新自己的信息（通过 ID 参数判断）
+		if target == "user" && (opName == "get" || opName == "update") {
+			userID := c.Param("id")
+			if userID != "" {
+				// 如果请求的是自己的 ID，允许访问
+				if fmt.Sprintf("%d", user.ID) == userID {
+					c.Set("user", user)
+					c.Next()
+					return
+				}
+			}
 		}
 
 		// 获取资源范围（如果有）
@@ -224,7 +248,7 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 
 		// 检查权限
 		if !CheckPermission(user, target, opName, resourceScope) {
-			utilG.Response(utils.ERROR, utils.ERROR, fmt.Sprintf("Permission denied: %s.%s", target, opName))
+			utilG.Response(http.StatusForbidden, utils.ERROR, fmt.Sprintf("Permission denied: %s.%s", target, opName))
 			c.Abort()
 			return
 		}

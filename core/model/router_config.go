@@ -12,10 +12,10 @@ import (
 type RouterConfig struct {
 	ID          int64          `gorm:"primary_key;column:id" json:"id"`                           // 路由器配置的唯一标识，作为主键
 	RouterName  string         `gorm:"type:varchar(255);column:router_name" json:"router_name"`   // 路由器名称
-	WebPort     int            `gorm:"type:int(11);column:web_port" json:"web_port"`              // Web管理端口
+	WebPort     int            `gorm:"type:integer;column:web_port" json:"web_port"`              // Web管理端口
 	WebUsername string         `gorm:"type:varchar(255);column:web_username" json:"web_username"` // Web管理用户名
 	WebPassword string         `gorm:"type:varchar(255);column:web_password" json:"web_password"` // Web管理密码
-	Port        int            `gorm:"type:int(11);column:port" json:"port"`                      // SSH端口
+	Port        int            `gorm:"type:integer;column:port" json:"port"`                      // SSH端口
 	IPv4Pub     string         `gorm:"type:varchar(255);column:ipv4_pub" json:"ipv4_pub"`         // 公网IPv4地址
 	IPv4Priv    string         `gorm:"type:varchar(255);column:ipv4_priv" json:"ipv4_priv"`       // 内网IPv4地址
 	IPv6        string         `gorm:"type:varchar(255);column:ipv6" json:"ipv6"`                 // IPv6地址

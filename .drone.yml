@@ -24,9 +24,9 @@ steps:
   - name: build backend image
     image: plugins/docker
     settings:
-      dockerfile: deployment/Dockerfile.backend
+      dockerfile: deployment/Dockerfile
       context: .
-      repo: registry.cn-hongkong.aliyuncs.com/binrc/roma-backend
+      repo: registry.cn-hongkong.aliyuncs.com/binrchq/roma
       registry: registry.cn-hongkong.aliyuncs.com
       username:
         from_secret: docker_username
@@ -50,7 +50,7 @@ depends_on:
 
 steps:
   - name: create production secrets
-    image: docker.1ms.run/bitnami/kubectl
+    image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
     environment:
       KUBECONFIG:
         from_secret: kubeconfig_data
@@ -100,18 +100,20 @@ steps:
           -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to prod
-    image: docker.1ms.run/bitnami/kubectl
+    image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
     environment:
       KUBECONFIG:
         from_secret: kubeconfig_data
       HOME: /root
       IMAGE_TAG: ${DRONE_TAG}
+      NAMESPACE: roma
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
-      - sed -e "s|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:latest|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:$IMAGE_TAG|g" \
+      - |
+        sed -e "s|registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest|registry.cn-hongkong.aliyuncs.com/binrchq/roma:$IMAGE_TAG|g" \
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.deploy.yaml
-      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.deploy.yaml -n roma
-      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n roma --timeout=5m
+      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.deploy.yaml
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
 
 
 ---
@@ -128,7 +130,7 @@ depends_on:
 
 steps:
   - name: create demo secrets
-    image: docker.1ms.run/bitnami/kubectl
+    image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
     environment:
       KUBECONFIG:
         from_secret: kubeconfig_data
@@ -178,18 +180,21 @@ steps:
           -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to demo
-    image: docker.1ms.run/bitnami/kubectl
+    image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
     environment:
       KUBECONFIG:
         from_secret: kubeconfig_data
       HOME: /root
       IMAGE_TAG: ${DRONE_TAG}
+      NAMESPACE: demo
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
-      - sed -e "s|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:latest|registry.cn-hongkong.aliyuncs.com/binrc/roma-backend:$IMAGE_TAG|g" \
+      - |
+        sed -e "s|registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest|registry.cn-hongkong.aliyuncs.com/binrchq/roma:$IMAGE_TAG|g" \
+            -e "s|namespace: roma|namespace: $NAMESPACE|g" \
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
-      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml -n demo
-      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n demo --timeout=5m
+      - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
 
 
 # ============================================================================

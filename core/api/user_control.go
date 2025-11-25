@@ -216,7 +216,12 @@ func (uc *UserController) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	currentUser := user.(*model.User)
+	currentUser, ok := user.(*model.User)
+	if !ok {
+		log.Printf("Failed to convert user to *model.User, type: %T", user)
+		utilG.Response(http.StatusInternalServerError, utils.ERROR, "用户信息格式错误")
+		return
+	}
 
 	// 重新查询用户并预加载角色信息（确保角色被正确加载）
 	opUser := operation.NewUserOperation()

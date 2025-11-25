@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"binrc.com/roma/core/sshd"
 	"binrc.com/roma/core/utils/logger"
 
+	"github.com/fatih/color"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/loganchef/ssh"
@@ -45,6 +45,12 @@ var (
 			}
 
 			global.CONFIG = cfg
+
+			// 强制启用颜色输出（在 Docker 容器中也需要颜色）
+			// 检查环境变量，如果明确设置了 NO_COLOR，则禁用颜色
+			if os.Getenv("NO_COLOR") == "" {
+				color.NoColor = false
+			}
 
 			LoadDatabase()
 			LoadI18n()
@@ -243,9 +249,11 @@ func StartSshdService() {
 	if err != nil {
 		logger.Logger.Panic("Get host key error:", err)
 	}
-	privateKeyBytes, err := base64.StdEncoding.DecodeString(string(hostKey.PrivateKey))
-	if err != nil {
-		log.Fatalf("Failed to decode base64 encoded private key: %s", err)
+	// GenKey() 返回的是原始 PEM 格式的私钥，不需要 Base64 解码
+	// 直接使用 hostKey.PrivateKey 即可
+	privateKeyBytes := hostKey.PrivateKey
+	if len(privateKeyBytes) == 0 {
+		log.Fatalf("Host key private key is empty")
 	}
 	log.Fatal(ssh.ListenAndServe(
 		fmt.Sprintf(":%s", global.CONFIG.Common.Port),

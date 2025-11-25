@@ -12,10 +12,10 @@ import (
 type DockerConfig struct {
 	ID            int64          `gorm:"primary_key;column:id" json:"id"`                          // Linux配置的唯一标识，作为主键
 	ContainerName string         `gorm:"type:varchar(255);column:ContainerName" json:"hostname"`   // Linux机器的主机名
-	Port          int            `gorm:"type:int(11);column:port" json:"port"`                     // SSH端口号
+	Port          int            `gorm:"type:integer;column:port" json:"port"`                     // SSH端口号
 	IPv4Priv      string         `gorm:"type:varchar(255);column:ipv4_priv" json:"ipv4_priv"`      // 内网IPv4地址
 	IPv6          string         `gorm:"type:varchar(255);column:ipv6" json:"ipv6"`                // IPv6地址
-	PortIPv6      int            `gorm:"type:int(11);column:port_ipv6" json:"port_ipv6"`           // IPv6连接的SSH端口号
+	PortIPv6      int            `gorm:"type:integer;column:port_ipv6" json:"port_ipv6"`           // IPv6连接的SSH端口号
 	Password      string         `gorm:"type:varchar(255);column:password" json:"password"`        // SSH身份验证密码
 	Username      string         `gorm:"type:varchar(255);column:username" json:"username"`        // SSH身份验证用户名
 	PrivateKey    string         `gorm:"type:text;column:private_key" json:"private_key"`          // SSH身份验证私钥

@@ -1,0 +1,114 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: roma-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-roma}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-roma123456}
+      - POSTGRES_DB=${POSTGRES_DB:-roma}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - roma-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-roma}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  roma-backend:
+    image: binrc/roma:${TAG:-latest}
+    container_name: roma
+    restart: unless-stopped
+    stdin_open: true  # 启用标准输入，符合 TTY 使用习惯
+    tty: true         # 分配伪终端，确保颜色和交互功能正常
+    ports:
+      - "${ROMA_SSH_PORT:-2200}:2200"
+      - "${ROMA_API_PORT:-6999}:6999"
+    volumes:
+      - roma-data:/app/data
+    environment:
+      - ROMA_BASE_ROOT=/app
+      - APP_ENV=${APP_ENV:-development}
+      # API 配置
+      - ROMA_API_HOST=${ROMA_API_HOST:-0.0.0.0}
+      - ROMA_API_PORT=${ROMA_API_PORT:-6999}
+      - ROMA_API_GIN_MODE=${ROMA_API_GIN_MODE:-release}
+      # Common 配置
+      - ROMA_COMMON_PORT=${ROMA_COMMON_PORT:-2200}
+      - ROMA_COMMON_LANGUAGE=${ROMA_COMMON_LANGUAGE:-zh}
+      - ROMA_COMMON_PROMPT=${ROMA_COMMON_PROMPT:-roma}
+      - ROMA_COMMON_HISTORY_TMP_DIR=${ROMA_COMMON_HISTORY_TMP_DIR:-/tmp/roma_history}
+      - ROMA_COMMON_HISTORY_TMP_MAX_LINE=${ROMA_COMMON_HISTORY_TMP_MAX_LINE:-1000}
+      - ROMA_COMMON_HISTORY_TMP_MAX_SIZE=${ROMA_COMMON_HISTORY_TMP_MAX_SIZE:-10485760}
+      # Database 配置
+      - ROMA_DATABASE_CDB_URL=${ROMA_DATABASE_CDB_URL:-postgres://roma:roma123456@postgres:5432/roma?sslmode=disable}
+      - ROMA_DATABASE_RDB_URL=${ROMA_DATABASE_RDB_URL:-}
+      - ROMA_DATABASE_RDB_PASSWD=${ROMA_DATABASE_RDB_PASSWD:-}
+      # Log 配置
+      - ROMA_LOG_LEVEL=${ROMA_LOG_LEVEL:-debug}
+      # ApiKey 配置
+      - ROMA_APIKEY_PREFIX=${ROMA_APIKEY_PREFIX:-apikey.}
+      - ROMA_APIKEY_KEY=${ROMA_APIKEY_KEY:-DEMO_API_KEY_FOR_PUBLIC_DEMO_ONLY}
+      # User1st 配置
+      - ROMA_USER_1ST_USERNAME=${ROMA_USER_1ST_USERNAME:-demo}
+      - ROMA_USER_1ST_EMAIL=${ROMA_USER_1ST_EMAIL:-test@roma.binrc.com}
+      - ROMA_USER_1ST_PASSWORD=${ROMA_USER_1ST_PASSWORD:-demo123456}
+      - ROMA_USER_1ST_PUBLIC_KEY=${ROMA_USER_1ST_PUBLIC_KEY:-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC5Sodss04hKLrJUlj4EqRi/hQNvjbTPGgNlbj/5B2dsIXh7DQxkeVc0SORSzhrmEZkCewwihZgBm8TlJVzs+0qRsagT7VpoluvjV3KE6R/KbYGJKkqlBv5UpAAtRbC1ngvoRC2M7GvxdfkD9jIuupPJIzTAdCeb8Ul/JrmswErRRcee4Fyk6OmvmvNrA+QLu9w7uhjgI5819knDZRXElXbZloEL4ptHHGcYvB/v//4+IXc4IfKAh6gcaPsJG3UjhVIFAB6XzwD4buassMYpufAgVw2N/jvQ5mIwMk+49TPyg6BN9dRvueCFyMvP2MjYQ1c5TmxHi+zg2BQ4aOyujDDJaNuccI0CfaCi+ceASSN3XTC+ZV0SUNyxp+B1ByIE3D2oDhUIlNtST+WF2RdhAQX+6twRqdmseFJL68b0dHcid5jaHnpdi4QN4tXqtjItV/mVWNKJzf3HpIO64q+nEhl8xc8Wfnxw4vbtT+ER/+bL596PN6HcDqcQcOFa9SKLzV0pmJEJUBM6GYVlLnY9gZlbLybeYqGYj3uym2cu64S9kCDtVtXsDwKmaWq99qdYKH7rby5S9JJyVQIpTnEG2ynE0SeWS5fr3al6cfo7aGgsH1RCXFvGIJCQhJDPLh3cOq3RoS4+viOW8xuW2glnB9uf9GBzdu7BQzVBH3SLcSxhw== demo@roma.binrc.com}
+      - ROMA_USER_1ST_NAME=${ROMA_USER_1ST_NAME:-演示管理员}
+      - ROMA_USER_1ST_NICKNAME=${ROMA_USER_1ST_NICKNAME:-Demo}
+      - ROMA_USER_1ST_ROLES=${ROMA_USER_1ST_ROLES:-super,system,ops,ordinary,trial}
+      # ControlPassport 配置
+      - ROMA_CONTROL_PASSPORT_SERVICE_USER=${ROMA_CONTROL_PASSPORT_SERVICE_USER:-root}
+      - ROMA_CONTROL_PASSPORT_PASSWORD=${ROMA_CONTROL_PASSPORT_PASSWORD:-}
+      - ROMA_CONTROL_PASSPORT_RESOURCE_TYPE=${ROMA_CONTROL_PASSPORT_RESOURCE_TYPE:-linux}
+      - ROMA_CONTROL_PASSPORT_PASSPORT=${ROMA_CONTROL_PASSPORT:------BEGIN OPENSSH PRIVATE KEY-----\n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\n-----END OPENSSH PRIVATE KEY-----\n}
+      - ROMA_CONTROL_PASSPORT_PASSPORT_PUB=${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC5Sodss04hKLrJUlj4EqRi/hQNvjbTPGgNlbj/5B2dsIXh7DQxkeVc0SORSzhrmEZkCewwihZgBm8TlJVzs+0qRsagT7VpoluvjV3KE6R/KbYGJKkqlBv5UpAAtRbC1ngvoRC2M7GvxdfkD9jIuupPJIzTAdCeb8Ul/JrmswErRRcee4Fyk6OmvmvNrA+QLu9w7uhjgI5819knDZRXElXbZloEL4ptHHGcYvB/v//4+IXc4IfKAh6gcaPsJG3UjhVIFAB6XzwD4buassMYpufAgVw2N/jvQ5mIwMk+49TPyg6BN9dRvueCFyMvP2MjYQ1c5TmxHi+zg2BQ4aOyujDDJaNuccI0CfaCi+ceASSN3XTC+ZV0SUNyxp+B1ByIE3D2oDhUIlNtST+WF2RdhAQX+6twRqdmseFJL68b0dHcid5jaHnpdi4QN4tXqtjItV/mVWNKJzf3HpIO64q+nEhl8xc8Wfnxw4vbtT+ER/+bL596PN6HcDqcQcOFa9SKLzV0pmJEJUBM6GYVlLnY9gZlbLybeYqGYj3uym2cu64S9kCDtVtXsDwKmaWq99qdYKH7rby5S9JJyVQIpTnEG2ynE0SeWS5fr3al6cfo7aGgsH1RCXFvGIJCQhJDPLh3cOq3RoS4+viOW8xuW2glnB9uf9GBzdu7BQzVBH3SLcSxhw== demo@roma.binrc.com}
+      - ROMA_CONTROL_PASSPORT_DESCRIPTION=${ROMA_CONTROL_PASSPORT_DESCRIPTION:-Demo control passport for public demonstration}
+      # Banner 配置
+      - ROMA_BANNER_SHOW=${ROMA_BANNER_SHOW:-true}
+      - ROMA_TITLE=${ROMA_TITLE:-Roma Configs File}
+    networks:
+      - roma-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--method=GET", "-O", "-", "http://localhost:6999/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  roma-web:
+    image: binrc/roma-web:${TAG:-latest}
+    container_name: roma-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-7000}:80"
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://roma:6999/api/v1}
+    networks:
+      - roma-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--method=GET", "-O", "-", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - roma-backend
+
+volumes:
+  roma-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  roma-network:
+    driver: bridge

@@ -1,8 +1,8 @@
 package api
 
 import (
-	"encoding/base64"
 	"net/http"
+	"strings"
 
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
@@ -91,14 +91,8 @@ func (sc *SSHKeyController) UploadSSHKey(c *gin.Context) {
 		return
 	}
 
-	// 验证私钥格式（尝试解码 Base64）
-	privateKeyBytes, err := base64.StdEncoding.DecodeString(req.PrivateKey)
-	if err != nil {
-		utilG.Response(http.StatusBadRequest, utils.ERROR, "私钥格式无效（需要 Base64 编码）")
-		return
-	}
-
-	// 解析私钥
+	// 解析私钥（直接使用 PEM 格式）
+	privateKeyBytes := []byte(req.PrivateKey)
 	signer, err := ssh.ParsePrivateKey(privateKeyBytes)
 	if err != nil {
 		utilG.Response(http.StatusBadRequest, utils.ERROR, "私钥格式无效")
@@ -140,16 +134,28 @@ func (sc *SSHKeyController) GenerateSSHKey(c *gin.Context) {
 	currentUser := user.(*model.User)
 
 	// 生成新的 SSH 密钥对
-	privateKeyBase64, publicKeyBase64, err := sshd.GenKey()
+	privateKeyBytes, publicKeyBytes, err := sshd.GenKey()
 	if err != nil {
 		utilG.Response(http.StatusInternalServerError, utils.ERROR, "生成 SSH 密钥失败")
 		return
 	}
 
-	// 解码公钥（从 Base64 转为字符串）
-	publicKeyStr := string(publicKeyBase64)
+	// 公钥已经是原始格式（ssh-rsa AAAAB3NzaC1yc2E...），直接使用
+	publicKeyStr := string(publicKeyBytes)
 
-	// 更新用户的公钥
+	// 验证公钥格式（应该是 ssh-rsa、ssh-ed25519 等格式）
+	if !strings.HasPrefix(publicKeyStr, "ssh-rsa ") &&
+		!strings.HasPrefix(publicKeyStr, "ssh-ed25519 ") &&
+		!strings.HasPrefix(publicKeyStr, "ecdsa-sha2-") {
+		previewLen := 50
+		if len(publicKeyStr) < previewLen {
+			previewLen = len(publicKeyStr)
+		}
+		utilG.Response(http.StatusInternalServerError, utils.ERROR, "生成的公钥格式无效: "+publicKeyStr[:previewLen])
+		return
+	}
+
+	// 更新用户的公钥（保存原始格式）
 	currentUser.PublicKey = publicKeyStr
 
 	opUser := operation.NewUserOperation()
@@ -159,9 +165,9 @@ func (sc *SSHKeyController) GenerateSSHKey(c *gin.Context) {
 		return
 	}
 
-	// 返回公私钥（仅创建时返回私钥）
+	// 返回公私钥（私钥是原始 PEM 格式）
 	utilG.Response(http.StatusOK, utils.SUCCESS, SSHKeyResponse{
 		PublicKey:  publicKeyStr,
-		PrivateKey: string(privateKeyBase64), // 返回 Base64 编码的私钥
+		PrivateKey: string(privateKeyBytes), // 返回原始 PEM 格式的私钥
 	})
 }

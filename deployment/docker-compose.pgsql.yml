@@ -24,9 +24,9 @@ services:
       timeout: 5s
       retries: 5
 
-  roma-backend:
-    image: binrc/roma-backend:latest
-    container_name: roma-backend
+  roma:
+    image: binrc/roma:latest
+    container_name: roma
     restart: unless-stopped
     ports:
       - "2200:2200"
@@ -52,17 +52,17 @@ services:
     #   retries: 3
     #   start_period: 10s
 
-  roma-frontend:
-    image: binrc/roma-frontend:latest
-    container_name: roma-frontend
+  roma-web:
+    image: binrc/roma-web:latest
+    container_name: roma-web
     restart: unless-stopped
     ports:
       - "80:80"
     environment:
       - API_BASE_PATH=/api/v1
-      - BACKEND_URL=http://roma-backend:6999
+      - BACKEND_URL=http://roma:6999
     depends_on:
-      - roma-backend
+      - roma
     networks:
       - roma-network
     healthcheck:

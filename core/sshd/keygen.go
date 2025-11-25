@@ -4,9 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"io/ioutil"
+	"strings"
 
 	"binrc.com/roma/core/utils/logger"
 	"golang.org/x/crypto/ssh"
@@ -64,11 +64,14 @@ func GenKey() ([]byte, []byte, error) {
 
 	privateKeyBytes := encodePrivateKeyToPEM(privateKey)
 
-	// 将私钥和公钥转换为Base64编码的字符串，方便存储到数据库
-	privateKeyBase64 := base64.StdEncoding.EncodeToString(privateKeyBytes)
-	publicKeyBase64 := base64.StdEncoding.EncodeToString([]byte(publicKeyBytes))
+	// 私钥直接返回原始 PEM 格式，不需要 Base64 编码
+	privateKeyStr := string(privateKeyBytes)
 
-	return []byte(privateKeyBase64), []byte(publicKeyBase64), nil
+	// 公钥直接返回原始格式（ssh-rsa AAAAB3NzaC1yc2E...），不需要 Base64 编码
+	// 去除末尾的换行符
+	publicKeyStr := strings.TrimSpace(string(publicKeyBytes))
+
+	return []byte(privateKeyStr), []byte(publicKeyStr), nil
 }
 
 // generatePrivateKey creates a RSA Private Key of specified byte size
@@ -108,17 +111,25 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 }
 
 // generatePublicKey take a rsa.PublicKey and return bytes suitable for writing to .pub file
-// returns in the format "ssh-rsa ..."
+// returns in the format "ssh-rsa ... roma-auto-gen@roma"
 func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
 	publicRsaKey, err := ssh.NewPublicKey(privatekey)
 	if err != nil {
 		return nil, err
 	}
 
+	// 生成公钥，添加注释
 	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
 
+	// 移除末尾的换行符，添加注释
+	pubKeyStr := strings.TrimSpace(string(pubKeyBytes))
+	if !strings.Contains(pubKeyStr, "@") {
+		// 如果没有注释，添加默认注释
+		pubKeyStr = pubKeyStr + " roma-auto-gen@roma"
+	}
+
 	logger.Logger.Info("Public key generated")
-	return pubKeyBytes, nil
+	return []byte(pubKeyStr + "\n"), nil
 }
 
 // writePemToFile writes keys to a file

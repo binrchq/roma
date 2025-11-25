@@ -14,7 +14,7 @@ type DatabaseConfig struct {
 	DatabaseNick string         `gorm:"type:varchar(255);column:database_nick" json:"database_nick"` // 数据库配置的名称
 	DatabaseName string         `gorm:"type:varchar(255);column:database_name" json:"database_name"` // 数据库名称
 	DatabaseType string         `gorm:"type:varchar(255);column:database_type" json:"database_type"` // 数据库类型（例如，'MySQL'，'PostgreSQL'）
-	Port         int            `gorm:"type:int(11);column:port" json:"port"`                        // 数据库连接端口号
+	Port         int            `gorm:"type:integer;column:port" json:"port"`                        // 数据库连接端口号
 	IPv4Pub      string         `gorm:"type:varchar(15);column:ipv4_pub" json:"ipv4_pub"`            // 公网IPv4地址
 	IPv4Priv     string         `gorm:"type:varchar(15);column:ipv4_priv" json:"ipv4_priv"`          // 内网IPv4地址
 	IPv6         string         `gorm:"type:varchar(39);column:ipv6" json:"ipv6"`                    // IPv6地址

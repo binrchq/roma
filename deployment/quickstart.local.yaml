@@ -1,0 +1,36 @@
+services:
+  roma:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: binrc/roma:local
+    container_name: roma-local
+    restart: unless-stopped
+    stdin_open: true  # 启用标准输入，符合 TTY 使用习惯
+    tty: true         # 分配伪终端，确保颜色和交互功能正常
+    ports:
+      - "2200:2200"
+      - "6999:6999"
+    volumes:
+      - roma-data-local:/app/data
+      - ./config-demo.toml:/app/configs/config.toml:ro
+    command: ["--config", "/app/configs/config.toml"]
+    environment:
+      - ROMA_BASE_ROOT=/app
+      - APP_ENV=development
+    networks:
+      - roma-network-local
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6999/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  roma-data-local:
+    driver: local
+
+networks:
+  roma-network-local:
+    driver: bridge

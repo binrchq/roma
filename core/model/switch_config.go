@@ -12,12 +12,12 @@ import (
 type SwitchConfig struct {
 	ID          int64          `gorm:"primary_key;column:id" json:"id"`                         // 交换机配置的唯一标识，作为主键
 	SwitchName  string         `gorm:"type:varchar(255);column:switch_name" json:"switch_name"` // 交换机名称
-	Port        int            `gorm:"type:int(11);column:port" json:"port"`                    // SSH端口
+	Port        int            `gorm:"type:integer;column:port" json:"port"`                    // SSH端口
 	IPv4Pub     string         `gorm:"type:varchar(255);column:ipv4_pub" json:"ipv4_pub"`       // 公网IPv4地址
-	PortActual  int            `gorm:"type:int(11);column:port_actual" json:"port_actual"`      // 实际SSH端口ipv4"
+	PortActual  int            `gorm:"type:integer;column:port_actual" json:"port_actual"`      // 实际SSH端口ipv4"
 	IPv4Priv    string         `gorm:"type:varchar(255);column:ipv4_priv" json:"ipv4_priv"`     // 内网IPv4地址
 	IPv6        string         `gorm:"type:varchar(255);column:ipv6" json:"ipv6"`               // IPv6地址
-	PortIPv6    int            `gorm:"type:int(11);column:port_ipv6" json:"port_ipv6"`          // SSH端口IPv6
+	PortIPv6    int            `gorm:"type:integer;column:port_ipv6" json:"port_ipv6"`          // SSH端口IPv6
 	Password    string         `gorm:"type:varchar(255);column:password" json:"password"`       // SSH密码
 	Username    string         `gorm:"type:varchar(255);column:username" json:"username"`       // SSH用户名
 	Description string         `gorm:"type:varchar(255);column:description" json:"description"` // 交换机配置描述

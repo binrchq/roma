@@ -293,9 +293,9 @@ func (cmd *Ln) Usage() string {
 	usageMsg += cmd.flags.FormatUsagef("Login the specified TYPE of resource,TYPE is %s;RESOURCE for ls Query, etc.", cyan(strings.Join(resourceTypes, ", ")))
 	usageMsg += cmd.flags.FormatUsagef("")
 	usageMsg += cmd.flags.FormatUsagef("Examples:")
-	usageMsg += cmd.flags.FormatUsagef("  ln -t linux server1                    # 交互式登录")
-	usageMsg += cmd.flags.FormatUsagef("  ln -t linux server1 -- 'df -h'         # 执行命令并退出")
-	usageMsg += cmd.flags.FormatUsagef("  ln -t database links-mysql -- 'SHOW databases;'  # 执行 SQL")
+	usageMsg += cmd.flags.FormatUsagef("  ln -t linux server1                    		   # link resource to server1")
+	usageMsg += cmd.flags.FormatUsagef("  ln -t linux server1 -- 'df -h'         		   # link resource to server1 and execute command")
+	usageMsg += cmd.flags.FormatUsagef("  ln -t database links-mysql -- 'SHOW databases;'  # link resource to links-mysql and execute SQL")
 	usageMsg += cmd.flags.FormatUsagef("Usage:")
 	var buffer bytes.Buffer
 	tw := tabwriter.NewWriter(&buffer, 0, 0, 2, ' ', 0)

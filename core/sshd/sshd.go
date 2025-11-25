@@ -33,19 +33,60 @@ func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key str
 
 	pty, winCh, _ := (*sess).Pty()
 
-	if err := upstreamSess.RequestPty(pty.Term, pty.Window.Height, pty.Window.Width, gossh.TerminalModes{}); err != nil {
-		return err
+	// 设置终端模式，确保输入输出正常显示
+	termModes := gossh.TerminalModes{
+		gossh.ECHO:          1,     // 启用回显
+		gossh.TTY_OP_ISPEED: 14400, // 输入速度
+		gossh.TTY_OP_OSPEED: 14400, // 输出速度
+		gossh.IGNCR:         0,     // 不忽略 CR
+		gossh.ICRNL:         1,     // 将 CR 转换为 NL
+		gossh.ONLCR:         1,     // 将 NL 映射为 CR-NL
+	}
+
+	// 确保 TERM 环境变量被设置
+	// 在 Docker 容器中，如果客户端没有请求 PTY，pty.Term 可能为空，使用默认值
+	term := pty.Term
+	if term == "" {
+		term = "xterm-256color"
+	}
+
+	// 获取窗口大小，如果未设置则使用默认值
+	height := pty.Window.Height
+	width := pty.Window.Width
+	if height <= 0 {
+		height = 24
+	}
+	if width <= 0 {
+		width = 80
+	}
+
+	// 设置 TERM 环境变量
+	if err := upstreamSess.Setenv("TERM", term); err != nil {
+		// 如果设置环境变量失败，记录但不中断（某些 SSH 服务器可能不支持 Setenv）
+		logger.Logger.Warning(fmt.Sprintf("Failed to set TERM environment variable: %v", err))
+	}
+
+	// 请求 PTY，即使在 Docker 容器中也要请求，以确保终端正常工作
+	if err := upstreamSess.RequestPty(term, height, width, termModes); err != nil {
+		// 如果请求 PTY 失败，记录警告但继续（某些情况下可能不需要 PTY）
+		logger.Logger.Warning(fmt.Sprintf("Failed to request PTY: %v, continuing without PTY", err))
 	}
 
 	if err := upstreamSess.Shell(); err != nil {
 		return err
 	}
 
-	go func() {
-		for win := range winCh {
-			upstreamSess.WindowChange(win.Height, win.Width)
-		}
-	}()
+	// 只有在有窗口变化通道时才处理窗口大小变化
+	if winCh != nil {
+		go func() {
+			for win := range winCh {
+				if err := upstreamSess.WindowChange(win.Height, win.Width); err != nil {
+					logger.Logger.Warning(fmt.Sprintf("Failed to change window size: %v", err))
+					break
+				}
+			}
+		}()
+	}
 
 	if err := upstreamSess.Wait(); err != nil {
 		return err
