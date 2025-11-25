@@ -3,6 +3,8 @@ FROM registry.cn-hongkong.aliyuncs.com/binrcbase/golang:1.24.1-alpine AS builder
 
 WORKDIR /build
 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
 # 安装构建依赖
 RUN apk add --no-cache git sqlite-dev gcc musl-dev
 
@@ -24,6 +26,8 @@ RUN go build -ldflags="-s -w" -o roma ./cmd/roma/main.go
 # 运行阶段
 FROM registry.cn-hongkong.aliyuncs.com/binrcbase/alpine:latest
 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
 RUN apk add --no-cache ca-certificates sqlite wget
 
 WORKDIR /app
