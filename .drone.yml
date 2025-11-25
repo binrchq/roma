@@ -114,6 +114,13 @@ steps:
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.deploy.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.deploy.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
+      - echo "=========================================="
+      - echo "部署信息:"
+      - echo "  Namespace: $NAMESPACE"
+      - echo "  Image Tag: $IMAGE_TAG"
+      - echo "  SSH 端口: 2200"
+      - echo "  API 端口: 6999"
+      - echo "=========================================="
 
 
 ---
@@ -195,6 +202,13 @@ steps:
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
+      - echo "=========================================="
+      - echo "部署信息:"
+      - echo "  Namespace: $NAMESPACE"
+      - echo "  Image Tag: $IMAGE_TAG"
+      - echo "  SSH 端口: 2200"
+      - echo "  API 端口: 6999"
+      - echo "=========================================="
 
 
 # ============================================================================

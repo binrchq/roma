@@ -1,4 +1,40 @@
 ---
+# ServiceAccount for Kubernetes API access
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: roma-backend
+  namespace: roma
+
+---
+# Role for reading Service information
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: roma-backend-role
+  namespace: roma
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: roma-backend-rolebinding
+  namespace: roma
+subjects:
+  - kind: ServiceAccount
+    name: roma-backend
+    namespace: roma
+roleRef:
+  kind: Role
+  name: roma-backend-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
 # Backend Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -15,6 +51,7 @@ spec:
       labels:
         app: roma-backend
     spec:
+      serviceAccountName: roma-backend
       imagePullSecrets:
         - name: ali-hk-registry-secret
       containers:
@@ -31,6 +68,17 @@ spec:
               value: "/app"
             - name: APP_ENV
               value: "production"
+            - name: ROMA_SSH_SERVICE_NAME
+              value: "roma-backend-ssh-service"
+            - name: ROMA_SSH_SERVICE_NAMESPACE
+              value: "roma"
+            # ROMA_SSH_ADDRESS 格式: host:port
+            # 如果 LoadBalancer 有固定域名，可以设置为: ssh.roma.example.com:2200
+            # 如果未设置，将使用请求的 Host 和配置中的端口
+            # 查询 LoadBalancer 外部地址: kubectl get svc roma-backend-ssh-service -n roma -o jsonpath='{.status.loadBalancer.ingress[0].ip}:{.spec.ports[0].port}'
+            # 或者查询域名: kubectl get svc roma-backend-ssh-service -n roma -o jsonpath='{.status.loadBalancer.ingress[0].hostname}:{.spec.ports[0].port}'
+            # - name: ROMA_SSH_ADDRESS
+            #   value: "ssh.roma.example.com:2200"
             - name: ROMA_APIKEY_KEY
               valueFrom:
                 secretKeyRef:
@@ -124,61 +172,6 @@ spec:
             name: roma-config
 
 ---
-# Frontend Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: roma-frontend
-  namespace: roma
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: roma-frontend
-  template:
-    metadata:
-      labels:
-        app: roma-frontend
-    spec:
-      imagePullSecrets:
-        - name: ali-hk-registry-secret
-      containers:
-        - name: roma-frontend
-          imagePullPolicy: Always
-          image: registry.cn-hongkong.aliyuncs.com/binrchq/roma-web:latest
-          ports:
-            - containerPort: 80
-              name: http
-          env:
-            - name: API_BASE_PATH
-              value: "/api/v1"
-            - name: BACKEND_URL
-              value: "http://roma-backend-service:6999"
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "50m"
-            limits:
-              memory: "256Mi"
-              cpu: "200m"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 80
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 80
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
-
----
 # Backend Service
 apiVersion: v1
 kind: Service
@@ -199,20 +192,25 @@ spec:
       name: api
 
 ---
-# Frontend Service
+# SSH LoadBalancer Service (暴露 SSH 端口 2200)
 apiVersion: v1
 kind: Service
 metadata:
-  name: roma-frontend-service
+  name: roma-backend-ssh-service
   namespace: roma
+  labels:
+    app: roma-backend
+    service-type: ssh
 spec:
+  type: LoadBalancer
   selector:
-    app: roma-frontend
+    app: roma-backend
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 80
-      name: http
+      port: 2200
+      targetPort: 2200
+      name: ssh
+  sessionAffinity: ClientIP
 
 ---
 # PersistentVolumeClaim for data
@@ -222,11 +220,12 @@ metadata:
   name: roma-data-pvc
   namespace: roma
 spec:
+  storageClassName: rook-ceph-block
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: 30Gi
 
 ---
 # ConfigMap for config.toml (基础配置，敏感信息通过 Secret 注入)
@@ -245,7 +244,7 @@ data:
     port = '6999'
 
     [common]
-    history_tmp_dir = '/tmp/roma_history'
+    history_tmp_dir = '/data/roma/history'
     history_tmp_max_line = 1000
     history_tmp_max_size = 10485760
     language = 'zh'
@@ -254,7 +253,7 @@ data:
 
     [database]
     # cdb_url 从环境变量 ROMA_DATABASE_CDB_URL 读取
-    cdb_url = '/app/data/c.db'
+    cdb_url = ''
     rdb_passwd = ''
     rdb_url = ''
 
