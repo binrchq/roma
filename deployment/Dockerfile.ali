@@ -1,5 +1,5 @@
 # 后端 Go 应用 Dockerfile（多阶段构建）
-FROM registry.cn-hongkong.aliyuncs.com/binrcbase/golang:1.23.1-alpine AS builder
+FROM registry.cn-hongkong.aliyuncs.com/binrcbase/golang:1.24.1-alpine AS builder
 
 WORKDIR /build
 
