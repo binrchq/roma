@@ -1,0 +1,63 @@
+# 后端 Go 应用 Dockerfile（多阶段构建）
+FROM registry.cn-hongkong.aliyuncs.com/binrcbase/golang:1.23.1-alpine AS builder
+
+WORKDIR /build
+
+# 安装构建依赖
+RUN apk add --no-cache git sqlite-dev gcc musl-dev
+
+# 设置 Go 环境变量
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=sum.golang.google.cn
+ENV CGO_ENABLED=1
+
+# 复制依赖文件
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 复制源代码
+COPY . .
+
+# 构建应用
+RUN go build -ldflags="-s -w" -o roma ./cmd/roma/main.go
+
+# 运行阶段
+FROM registry.cn-hongkong.aliyuncs.com/binrcbase/alpine:latest
+
+RUN apk add --no-cache ca-certificates sqlite wget
+
+WORKDIR /app
+
+# 从构建阶段复制二进制文件
+COPY --from=builder /build/roma /app/roma
+
+# 复制配置文件
+COPY --from=builder /build/configs /app/configs
+COPY --from=builder /build/i18n /app/i18n
+
+# 复制启动脚本
+COPY deployment/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# 创建数据目录
+RUN mkdir -p /app/data && \
+    chmod +x /app/roma
+
+# 暴露端口
+EXPOSE 2200 6999
+
+# 设置环境变量
+ENV ROMA_BASE_ROOT=/app
+ENV APP_ENV=production
+# 设置终端类型，确保在 Docker 容器中 readline 能正确显示提示符
+ENV TERM=xterm-256color
+# 强制启用颜色输出（fatih/color 库会检测 TTY，在 Docker 中需要强制启用）
+ENV FORCE_COLOR=1
+ENV NO_COLOR=
+
+# 健康检查（如果 API 有健康检查端点）
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#   CMD wget --no-verbose --tries=1 --spider http://localhost:6999/health || exit 1
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["/app/roma", "--config", "/app/configs/config.toml"]

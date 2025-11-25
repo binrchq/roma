@@ -24,7 +24,7 @@ steps:
   - name: build backend image
     image: plugins/docker
     settings:
-      dockerfile: deployment/Dockerfile
+      dockerfile: deployment/Dockerfile.ali
       context: .
       repo: registry.cn-hongkong.aliyuncs.com/binrchq/roma
       registry: registry.cn-hongkong.aliyuncs.com
