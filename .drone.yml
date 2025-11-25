@@ -76,8 +76,6 @@ steps:
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
       - |
-        # 确保所有变量都有值（即使 secret 不存在或值为空）
-        # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
         ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
         ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
         ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
@@ -87,17 +85,7 @@ steps:
         ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
         ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
         ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
-        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
-          --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
-          --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
-          --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" \
-          --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" \
-          --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
-          --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
-          -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
+        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to prod
     image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
@@ -113,7 +101,7 @@ steps:
         sed -e "s|registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest|registry.cn-hongkong.aliyuncs.com/binrchq/roma:$IMAGE_TAG|g" \
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.deploy.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.deploy.yaml
-      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n $NAMESPACE --timeout=5m
       - echo "=========================================="
       - echo "部署信息:"
       - echo "  Namespace: $NAMESPACE"
@@ -163,8 +151,6 @@ steps:
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
       - |
-        # 确保所有变量都有值（即使 secret 不存在或值为空）
-        # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
         ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
         ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
         ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
@@ -174,17 +160,7 @@ steps:
         ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
         ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
         ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
-        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
-          --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
-          --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
-          --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" \
-          --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" \
-          --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
-          --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
-          --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
-          -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
+        kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" --from-literal=ROMA_USER_1ST_PASSWORD="$ROMA_USER_1ST_PASSWORD" --from-literal=ROMA_USER_1ST_USERNAME="$ROMA_USER_1ST_USERNAME" --from-literal=ROMA_USER_1ST_PUBLIC_KEY="$ROMA_USER_1ST_PUBLIC_KEY" --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT="$ROMA_CONTROL_PASSPORT_PASSPORT" --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to demo
     image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
@@ -201,7 +177,7 @@ steps:
             -e "s|namespace: roma|namespace: $NAMESPACE|g" \
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml
-      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma -n $NAMESPACE --timeout=5m
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n $NAMESPACE --timeout=5m
       - echo "=========================================="
       - echo "部署信息:"
       - echo "  Namespace: $NAMESPACE"
