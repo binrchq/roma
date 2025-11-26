@@ -94,25 +94,165 @@ func initMySQL() (*gorm.DB, error) {
 }
 
 func initPostgreSQL() (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(global.CONFIG.Database.CdbUrl), &gorm.Config{
+	cdbUrl := global.CONFIG.Database.CdbUrl
+
+	// 构建 DSN，如果没有 sslmode 则默认添加 sslmode=disable
+	dsn := buildPostgresDSN(cdbUrl)
+
+	// 先尝试直接连接到目标数据库
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+
+	// 如果连接失败且指定了数据库名，尝试创建数据库
 	if err != nil {
-		if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
-			if err := createPostgreSQLDatabase(global.CONFIG.Database.CdbUrl); err != nil {
-				return nil, fmt.Errorf("failed to create PostgreSQL database: %s", err)
+		// 从连接字符串中提取数据库名
+		dbName := extractDatabaseName(cdbUrl)
+		if dbName != "" {
+			// 连接到 postgres 默认数据库
+			dsnWithoutDB := buildPostgresDSNWithoutDatabase(cdbUrl)
+			tempDB, tempErr := gorm.Open(postgres.Open(dsnWithoutDB), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if tempErr != nil {
+				// 如果连默认数据库都连不上，返回原始错误
+				return nil, fmt.Errorf("failed to connect to PostgreSQL database: %w", err)
 			}
-			db, err = gorm.Open(postgres.Open(global.CONFIG.Database.CdbUrl), &gorm.Config{
+
+			// 检查数据库是否存在，如果不存在则创建
+			var count int64
+			checkDB := "SELECT COUNT(*) FROM pg_database WHERE datname = $1"
+			if tempErr := tempDB.Raw(checkDB, dbName).Scan(&count).Error; tempErr != nil {
+				sqlTempDB, _ := tempDB.DB()
+				sqlTempDB.Close()
+				return nil, fmt.Errorf("failed to check database existence: %w", tempErr)
+			}
+
+			if count == 0 {
+				// 创建数据库
+				createDB := fmt.Sprintf("CREATE DATABASE %s", dbName)
+				if tempErr := tempDB.Exec(createDB).Error; tempErr != nil {
+					sqlTempDB, _ := tempDB.DB()
+					sqlTempDB.Close()
+					return nil, fmt.Errorf("failed to create database %s: %w", dbName, tempErr)
+				}
+				log.Info().Msgf("PostgreSQL database '%s' created successfully", dbName)
+			}
+
+			// 关闭临时连接
+			sqlTempDB, _ := tempDB.DB()
+			sqlTempDB.Close()
+
+			// 重新尝试连接到目标数据库
+			db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to open PostgreSQL database after creation: %s", err)
+				return nil, fmt.Errorf("failed to connect to PostgreSQL database: %w", err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to open PostgreSQL database: %s", err)
+			return nil, fmt.Errorf("failed to connect to PostgreSQL database: %w", err)
 		}
 	}
+
 	return db, nil
+}
+
+// buildPostgresDSN 构建 PostgreSQL DSN，如果没有 sslmode 则默认添加 sslmode=disable
+func buildPostgresDSN(cdbUrl string) string {
+	// 如果连接字符串已经包含 sslmode，直接返回
+	if strings.Contains(cdbUrl, "sslmode=") {
+		return cdbUrl
+	}
+
+	// 添加 sslmode=disable
+	if strings.Contains(cdbUrl, "postgres://") || strings.Contains(cdbUrl, "postgresql://") {
+		// URL 格式
+		if strings.Contains(cdbUrl, "?") {
+			return cdbUrl + "&sslmode=disable"
+		}
+		return cdbUrl + "?sslmode=disable"
+	} else if strings.Contains(cdbUrl, "host=") {
+		// 连接字符串格式
+		return cdbUrl + " sslmode=disable"
+	}
+	// 如果格式无法识别，直接追加
+	return cdbUrl + " sslmode=disable"
+}
+
+// buildPostgresDSNWithoutDatabase 构建不包含数据库名的 PostgreSQL DSN（用于创建数据库）
+func buildPostgresDSNWithoutDatabase(cdbUrl string) string {
+	var user, password, host, port string
+
+	if strings.HasPrefix(cdbUrl, "postgres://") || strings.HasPrefix(cdbUrl, "postgresql://") {
+		parsedURL, err := url.Parse(cdbUrl)
+		if err != nil {
+			// 解析失败，尝试添加 sslmode 后返回
+			return buildPostgresDSN(cdbUrl)
+		}
+
+		user = parsedURL.User.Username()
+		password, _ = parsedURL.User.Password()
+		host = parsedURL.Hostname()
+		port = parsedURL.Port()
+		if port == "" {
+			port = "5432"
+		}
+
+		// 构建连接到 postgres 默认数据库的 URL
+		if password != "" {
+			return fmt.Sprintf("postgres://%s:%s@%s:%s/postgres?sslmode=disable", user, password, host, port)
+		}
+		return fmt.Sprintf("postgres://%s@%s:%s/postgres?sslmode=disable", user, host, port)
+	} else {
+		// 连接字符串格式
+		re := regexp.MustCompile(`host=([^\s]+)`)
+		if matches := re.FindStringSubmatch(cdbUrl); len(matches) > 1 {
+			host = matches[1]
+		}
+
+		re = regexp.MustCompile(`port=(\d+)`)
+		if matches := re.FindStringSubmatch(cdbUrl); len(matches) > 1 {
+			port = matches[1]
+		} else {
+			port = "5432"
+		}
+
+		re = regexp.MustCompile(`user=([^\s]+)`)
+		if matches := re.FindStringSubmatch(cdbUrl); len(matches) > 1 {
+			user = matches[1]
+		}
+
+		re = regexp.MustCompile(`password=([^\s]+)`)
+		if matches := re.FindStringSubmatch(cdbUrl); len(matches) > 1 {
+			password = matches[1]
+		}
+
+		// 构建连接到 postgres 默认数据库的连接字符串
+		dsn := fmt.Sprintf("host=%s port=%s user=%s", host, port, user)
+		if password != "" {
+			dsn += fmt.Sprintf(" password=%s", password)
+		}
+		dsn += " dbname=postgres sslmode=disable"
+		return dsn
+	}
+}
+
+// extractDatabaseName 从连接字符串中提取数据库名
+func extractDatabaseName(cdbUrl string) string {
+	if strings.HasPrefix(cdbUrl, "postgres://") || strings.HasPrefix(cdbUrl, "postgresql://") {
+		parsedURL, err := url.Parse(cdbUrl)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimPrefix(parsedURL.Path, "/")
+	} else {
+		re := regexp.MustCompile(`dbname=([^\s]+)`)
+		if matches := re.FindStringSubmatch(cdbUrl); len(matches) > 1 {
+			return matches[1]
+		}
+	}
+	return ""
 }
 
 func getTableName(model interface{}) string {
