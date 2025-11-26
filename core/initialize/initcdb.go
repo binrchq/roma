@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
@@ -128,9 +129,31 @@ func initPostgreSQL() (*gorm.DB, error) {
 	log.Info().Str("dsn", maskPassword(dsn)).Msg("Attempting to connect to PostgreSQL database")
 
 	// 先尝试直接连接到目标数据库
+	// 对于 Pgpool 代理，添加连接超时和重试机制
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
+		NowFunc: func() time.Time {
+			return time.Now()
+		},
 	})
+
+	// 如果连接成功，配置连接池参数
+	if err == nil {
+		sqlDB, sqlErr := db.DB()
+		if sqlErr == nil {
+			// 设置连接池参数，适配 Pgpool 代理
+			sqlDB.SetMaxOpenConns(10)
+			sqlDB.SetMaxIdleConns(5)
+			sqlDB.SetConnMaxLifetime(time.Hour)
+			sqlDB.SetConnMaxIdleTime(time.Minute * 10)
+
+			// 测试连接
+			if pingErr := sqlDB.Ping(); pingErr != nil {
+				log.Error().Err(pingErr).Msg("PostgreSQL connection ping failed")
+				return nil, fmt.Errorf("failed to ping PostgreSQL database: %w", pingErr)
+			}
+		}
+	}
 
 	// 如果连接失败，记录详细错误信息
 	if err != nil {
@@ -192,25 +215,39 @@ func initPostgreSQL() (*gorm.DB, error) {
 }
 
 // buildPostgresDSN 构建 PostgreSQL DSN，如果没有 sslmode 则默认添加 sslmode=disable
+// 对于 Pgpool 代理，添加 connect_timeout 参数以提高连接稳定性
 func buildPostgresDSN(cdbUrl string) string {
-	// 如果连接字符串已经包含 sslmode，直接返回
-	if strings.Contains(cdbUrl, "sslmode=") {
+	hasSSLMode := strings.Contains(cdbUrl, "sslmode=")
+	hasConnectTimeout := strings.Contains(cdbUrl, "connect_timeout")
+
+	// 如果连接字符串已经包含 sslmode 和 connect_timeout，直接返回
+	if hasSSLMode && hasConnectTimeout {
 		return cdbUrl
 	}
 
-	// 添加 sslmode=disable
+	// 构建参数字符串
+	params := []string{}
+	if !hasSSLMode {
+		params = append(params, "sslmode=disable")
+	}
+	if !hasConnectTimeout {
+		params = append(params, "connect_timeout=10")
+	}
+	paramStr := strings.Join(params, "&")
+
+	// 添加参数
 	if strings.HasPrefix(cdbUrl, "postgres://") || strings.HasPrefix(cdbUrl, "postgresql://") {
 		// URL 格式：直接字符串拼接，避免 url.Parse 可能丢失密码的问题
 		if strings.Contains(cdbUrl, "?") {
-			return cdbUrl + "&sslmode=disable"
+			return cdbUrl + "&" + paramStr
 		}
-		return cdbUrl + "?sslmode=disable"
+		return cdbUrl + "?" + paramStr
 	} else if strings.Contains(cdbUrl, "host=") {
 		// 连接字符串格式
-		return cdbUrl + " sslmode=disable"
+		return cdbUrl + " " + strings.ReplaceAll(paramStr, "&", " ")
 	}
 	// 如果格式无法识别，直接追加
-	return cdbUrl + " sslmode=disable"
+	return cdbUrl + " " + strings.ReplaceAll(paramStr, "&", " ")
 }
 
 // buildPostgresDSNWithoutDatabase 构建不包含数据库名的 PostgreSQL DSN（用于创建数据库）
