@@ -101,6 +101,9 @@ func initPostgreSQL() (*gorm.DB, error) {
 		return nil, fmt.Errorf("PostgreSQL connection string is empty")
 	}
 
+	// 记录原始连接字符串（隐藏密码）
+	log.Info().Str("original_url", maskPassword(cdbUrl)).Msg("Original PostgreSQL connection string")
+
 	// 构建 DSN，如果没有 sslmode 则默认添加 sslmode=disable
 	dsn := buildPostgresDSN(cdbUrl)
 
@@ -108,6 +111,18 @@ func initPostgreSQL() (*gorm.DB, error) {
 	if !isValidPostgresDSN(dsn) {
 		log.Error().Str("dsn", maskPassword(dsn)).Msg("PostgreSQL DSN is incomplete, missing required parameters (host, port, user, password)")
 		return nil, fmt.Errorf("PostgreSQL connection string is incomplete, missing required parameters")
+	}
+
+	// 验证 URL 格式是否包含密码
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		parsedURL, err := url.Parse(dsn)
+		if err == nil && parsedURL.User != nil {
+			_, hasPassword := parsedURL.User.Password()
+			if !hasPassword {
+				log.Error().Str("dsn", maskPassword(dsn)).Msg("PostgreSQL connection string is missing password")
+				return nil, fmt.Errorf("PostgreSQL connection string is missing password")
+			}
+		}
 	}
 
 	log.Info().Str("dsn", maskPassword(dsn)).Msg("Attempting to connect to PostgreSQL database")
@@ -185,18 +200,7 @@ func buildPostgresDSN(cdbUrl string) string {
 
 	// 添加 sslmode=disable
 	if strings.HasPrefix(cdbUrl, "postgres://") || strings.HasPrefix(cdbUrl, "postgresql://") {
-		// URL 格式：确保 URL 编码正确
-		parsedURL, err := url.Parse(cdbUrl)
-		if err == nil {
-			// 解析成功，添加 sslmode 参数
-			if parsedURL.RawQuery != "" {
-				parsedURL.RawQuery += "&sslmode=disable"
-			} else {
-				parsedURL.RawQuery = "sslmode=disable"
-			}
-			return parsedURL.String()
-		}
-		// 解析失败，使用简单方式添加
+		// URL 格式：直接字符串拼接，避免 url.Parse 可能丢失密码的问题
 		if strings.Contains(cdbUrl, "?") {
 			return cdbUrl + "&sslmode=disable"
 		}
