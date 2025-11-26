@@ -25,7 +25,11 @@ func (s *SpaceOperation) CreateSpace(space *model.Space) (*model.Space, error) {
 // GetSpaceByID 获取空间
 func (s *SpaceOperation) GetSpaceByID(id uint) (*model.Space, error) {
 	var space model.Space
-	if err := s.DB.Preload("Members").Preload("Resources").First(&space, id).Error; err != nil {
+	if err := s.DB.Preload("Members.User").
+		Preload("Members.Role").
+		Preload("Resources").
+		Preload("Creator").
+		First(&space, id).Error; err != nil {
 		return nil, err
 	}
 	return &space, nil
@@ -107,6 +111,9 @@ func (s *SpaceOperation) GetUserSpaces(userID uint) ([]*model.Space, error) {
 	if err := s.DB.Table("spaces").
 		Joins("JOIN space_members ON spaces.id = space_members.space_id").
 		Where("space_members.user_id = ? AND space_members.is_active = ? AND spaces.is_active = ?", userID, true, true).
+		Preload("Members.User").
+		Preload("Members.Role").
+		Preload("Creator").
 		Find(&spaces).Error; err != nil {
 		return nil, err
 	}
@@ -117,7 +124,9 @@ func (s *SpaceOperation) GetUserSpaces(userID uint) ([]*model.Space, error) {
 func (s *SpaceOperation) GetAllSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 	if err := s.DB.Where("is_active = ?", true).
-		Preload("Members").
+		Preload("Members.User").
+		Preload("Members.Role").
+		Preload("Creator").
 		Find(&spaces).Error; err != nil {
 		return nil, err
 	}

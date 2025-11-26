@@ -213,8 +213,26 @@ steps:
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
       - |
+        # 使用 demo 环境的专用配置文件，只替换镜像标签
         sed -e "s|registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest|registry.cn-hongkong.aliyuncs.com/binrchq/roma:$IMAGE_TAG|g" \
-            -e "s|namespace: roma|namespace: $NAMESPACE|g" \
-            deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
+            deployment/k8s-deployment-demo.yaml > /drone/src/k8s-deployment.demo.yaml
+      - |
+        # 验证关键配置
+        if ! grep -q "name: roma-demo-backend" /drone/src/k8s-deployment.demo.yaml; then
+          echo "ERROR: Deployment name should be roma-demo-backend"
+          exit 1
+        fi
+        if ! grep -q "namespace: demo" /drone/src/k8s-deployment.demo.yaml; then
+          echo "ERROR: Namespace should be demo"
+          exit 1
+        fi
+        if ! grep -q "name: roma-demo-backend-service" /drone/src/k8s-deployment.demo.yaml; then
+          echo "ERROR: Service name should be roma-demo-backend-service"
+          exit 1
+        fi
+        if ! grep -q "app: roma-demo-backend" /drone/src/k8s-deployment.demo.yaml; then
+          echo "ERROR: App label should be roma-demo-backend"
+          exit 1
+        fi
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml
-      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n $NAMESPACE --timeout=5m
+      - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-demo-backend -n $NAMESPACE --timeout=5m
