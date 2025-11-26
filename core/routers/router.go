@@ -130,6 +130,17 @@ func SetupRouter() *gin.Engine {
 			sshKeys.POST("/me/upload", middleware.RequirePermission("user", "update"), sshKeyController.UploadSSHKey)     // 上传 SSH 密钥
 			sshKeys.POST("/me/generate", middleware.RequirePermission("user", "update"), sshKeyController.GenerateSSHKey) // 重新生成 SSH 密钥
 		}
+
+		// 空间管理路由 - 需要 admin 权限
+		spaceController := api.NewSpaceController()
+		spaces := v1.Group("/spaces")
+		{
+		spaces.GET("", middleware.RequirePermission("user", "list"), spaceController.GetAllSpaces)           // 获取空间列表
+		spaces.POST("", middleware.RequirePermission("user", "add"), spaceController.CreateSpace)            // 创建空间（需要 admin）
+		spaces.GET("/:id", middleware.RequirePermission("user", "get"), spaceController.GetSpaceByID)       // 获取空间详情
+		spaces.POST("/:id/members", middleware.RequirePermission("user", "add"), spaceController.AddSpaceMember)   // 添加空间成员
+		spaces.DELETE("/:id/members", middleware.RequirePermission("user", "delete"), spaceController.RemoveSpaceMember) // 移除空间成员
+		}
 	}
 
 	return r

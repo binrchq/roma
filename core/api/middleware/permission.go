@@ -1,13 +1,18 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/permissions"
 	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -86,55 +91,96 @@ func CheckPermission(user *model.User, target string, opName string, resourceSco
 		return false
 	}
 
-	// super 角色拥有所有权限
+	target = strings.ToLower(strings.TrimSpace(target))
+	opName = strings.ToLower(strings.TrimSpace(opName))
+	resourceScope = strings.ToLower(strings.TrimSpace(resourceScope))
+
+	// 检查是否有 super 角色（通过权限描述符判断，不硬编码角色名称）
 	for _, role := range roles {
-		if role.Name == "super" {
+		if permissions.IsSuperRole(role) {
 			return true
 		}
 	}
 
 	// 检查每个角色的权限规则
 	for _, role := range roles {
-		rules := ParsePermissionRule(role.Desc)
-		for _, rule := range rules {
-			// 检查目标类型是否匹配
-			if rule.Target != target {
-				continue
-			}
+		if role == nil {
+			continue
+		}
 
-			// 检查操作是否允许
-			hasOperation := false
-			for _, op := range rule.Operations {
-				if op == opName {
-					hasOperation = true
-					break
-				}
+		if handled, allowed := evaluateStructuredPermission(role, target, opName, resourceScope); handled {
+			if allowed {
+				return true
 			}
-			if !hasOperation {
-				continue
-			}
+			continue
+		}
 
-			// 检查范围过滤
-			if rule.Scope != "" {
-				if rule.ScopeType == "exclude" {
-					// 排除规则: 如果资源在排除范围内，则不允许
-					if strings.Contains(strings.ToLower(resourceScope), strings.ToLower(rule.Scope)) {
-						continue
-					}
-				} else if rule.ScopeType == "include" {
-					// 包含规则: 只允许指定范围的资源
-					if !strings.Contains(strings.ToLower(resourceScope), strings.ToLower(rule.Scope)) {
-						continue
-					}
-				}
-			}
-
-			// 权限通过
+		if legacyHasPermission(role, target, opName, resourceScope) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func evaluateStructuredPermission(role *model.Role, target, opName, resourceScope string) (bool, bool) {
+	desc, err := permissions.ParseRoleDescriptor(role.Desc)
+	if err != nil || desc == nil {
+		return false, false
+	}
+	return true, permissions.HasPermission(desc, target, opName, resourceScope)
+}
+
+func legacyHasPermission(role *model.Role, target, opName, resourceScope string) bool {
+	rules := ParsePermissionRule(role.Desc)
+	for _, rule := range rules {
+		if strings.ToLower(strings.TrimSpace(rule.Target)) != target {
+			continue
+		}
+		if !legacyOpAllowed(rule.Operations, opName) {
+			continue
+		}
+		if !legacyScopeAllowed(rule, resourceScope) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func legacyOpAllowed(operations []string, opName string) bool {
+	for _, op := range operations {
+		normalized := strings.ToLower(strings.TrimSpace(op))
+		if normalized == "" {
+			continue
+		}
+		if normalized == "*" || normalized == opName {
+			return true
+		}
+	}
+	return false
+}
+
+func legacyScopeAllowed(rule PermissionRule, resourceScope string) bool {
+	scopeValue := strings.ToLower(strings.TrimSpace(rule.Scope))
+	if scopeValue == "" {
+		return true
+	}
+
+	switch strings.ToLower(rule.ScopeType) {
+	case "exclude":
+		if resourceScope == "" {
+			return true
+		}
+		return !strings.Contains(resourceScope, scopeValue)
+	case "include":
+		if resourceScope == "" {
+			return false
+		}
+		return strings.Contains(resourceScope, scopeValue)
+	default:
+		return true
+	}
 }
 
 // GetUserFromContext 从上下文中获取用户信息
@@ -182,12 +228,12 @@ func GetUserFromContext(c *gin.Context) (*model.User, error) {
 		opUser := operation.NewUserOperation()
 		users, err := opUser.GetAllUsers()
 		if err == nil && len(users) > 0 {
-			// 优先查找 super 角色的用户
+			// 优先查找 super 角色的用户（通过权限描述符判断）
 			for _, u := range users {
 				roles, err := opUser.GetUserRoles(u.ID)
 				if err == nil {
 					for _, role := range roles {
-						if role.Name == "super" {
+						if permissions.IsSuperRole(role) {
 							return u, nil
 						}
 					}
@@ -246,7 +292,52 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 			resourceScope = c.Query("scope")
 		}
 
-		// 检查权限
+		// 如果是资源操作，使用多维度权限检查
+		if target == "resource" && opName != "list" {
+			resourceID := int64(0)
+			if idStr := c.Param("id"); idStr != "" {
+				if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+					resourceID = id
+				}
+			}
+
+			// 尝试从请求参数获取资源类型
+			resourceType := c.Query("type")
+			if resourceType == "" {
+				// 尝试从请求体获取（使用 Peek 方式，不消耗 body）
+				if c.Request.Body != nil {
+					bodyBytes, _ := c.GetRawData()
+					if len(bodyBytes) > 0 {
+						var body map[string]interface{}
+						if err := json.Unmarshal(bodyBytes, &body); err == nil {
+							if t, ok := body["type"].(string); ok && t != "" {
+								resourceType = t
+							}
+						}
+						// 恢复 body，供后续处理使用
+						c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+					}
+				}
+				if resourceType == "" {
+					resourceType = "linux" // 默认类型
+				}
+			}
+
+			if resourceID > 0 {
+				allowed, reason := permissions.CheckResourceAccess(user, resourceID, resourceType, opName)
+				if !allowed {
+					msg := fmt.Sprintf("Permission denied: %s.%s", target, opName)
+					if reason != "" {
+						msg = fmt.Sprintf("%s (%s)", msg, reason)
+					}
+					utilG.Response(http.StatusForbidden, utils.ERROR, msg)
+					c.Abort()
+					return
+				}
+			}
+		}
+
+		// 检查全局角色权限（对于非资源操作或资源列表操作）
 		if !CheckPermission(user, target, opName, resourceScope) {
 			utilG.Response(http.StatusForbidden, utils.ERROR, fmt.Sprintf("Permission denied: %s.%s", target, opName))
 			c.Abort()

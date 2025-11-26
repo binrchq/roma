@@ -1,6 +1,8 @@
 package operation
 
 import (
+	"errors"
+
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
 	"gorm.io/gorm"
@@ -76,4 +78,23 @@ func (r *RoleOperation) DeleteByID(id uint64) error {
 		return err
 	}
 	return nil
+}
+
+func (r *RoleOperation) CreateOrUpdate(role *model.Role) (*model.Role, error) {
+	if role == nil {
+		return nil, errors.New("role is nil")
+	}
+	var existing model.Role
+	err := r.DB.Where("name = ?", role.Name).First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return r.Create(role)
+	}
+	if err != nil {
+		return nil, err
+	}
+	existing.Desc = role.Desc
+	if err := r.DB.Save(&existing).Error; err != nil {
+		return nil, err
+	}
+	return &existing, nil
 }

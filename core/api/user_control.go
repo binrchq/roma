@@ -89,15 +89,18 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 
 	opUser := operation.NewUserOperation()
 	newUser, err := opUser.CreateUser(newUser)
+	if err != nil {
+		utilG.Response(http.StatusInternalServerError, utils.ERROR, "创建用户失败: "+err.Error())
+		return
+	}
+
+	// 添加角色关联
 	for _, role := range roles {
 		err = opUser.AddRoleToUser(newUser.ID, role.ID)
 		if err != nil {
-			utilG.Response(http.StatusInternalServerError, utils.ERROR, "创建用户失败"+err.Error())
+			utilG.Response(http.StatusInternalServerError, utils.ERROR, "添加用户角色失败: "+err.Error())
+			return
 		}
-	}
-	if err != nil {
-		utilG.Response(http.StatusInternalServerError, utils.ERROR, "创建用户失败"+err.Error())
-		return
 	}
 
 	utilG.Response(http.StatusOK, utils.SUCCESS, "用户创建成功")

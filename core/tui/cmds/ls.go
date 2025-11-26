@@ -10,6 +10,7 @@ import (
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/permissions"
 	"binrc.com/roma/core/tui/cmds/itface"
 	"github.com/loganchef/ssh"
 	"github.com/rs/zerolog/log"
@@ -147,16 +148,30 @@ func (cmd *Ls) Usage() string {
 }
 
 func (cmd *Ls) handleResources(resourceType string) ([]model.Resource, error) {
-	roles, err := operation.NewUserOperation().GetUserRolesByUsername(cmd.sess.User())
+	opUser := operation.NewUserOperation()
+	user, err := opUser.GetUserByUsername(cmd.sess.User())
 	if err != nil {
-		return nil, errors.New("permission denied")
+		return nil, errors.New("permission denied: unable to get user")
 	}
+
 	var resListA []model.Resource
 	op := operation.NewResourceOperation()
+
+	roles, err := opUser.GetUserRolesByUsername(cmd.sess.User())
+	if err != nil {
+		return nil, errors.New("permission denied: unable to get user roles")
+	}
 
 	for _, role := range roles {
 		resList, _ := op.GetResourceListByRoleId(role.ID, resourceType)
 		for _, res := range resList {
+			// 使用 CheckResourceAccessWithRoles 检查权限（角色 + 空间），避免重复查询用户角色
+			allowed, reason := permissions.CheckResourceAccessWithRoles(user, roles, res.GetID(), resourceType, "list")
+			if !allowed {
+				log.Debug().Msgf("Resource %s (ID: %d) access denied: %s", res.GetName(), res.GetID(), reason)
+				continue
+			}
+
 			switch resourceType {
 			case constants.ResourceTypeLinux:
 				if linuxRes, ok := res.(*model.LinuxConfig); ok {
@@ -187,12 +202,7 @@ func (cmd *Ls) handleResources(resourceType string) ([]model.Resource, error) {
 	}
 
 	if len(resListA) == 0 {
-		return nil, errors.New("resource of " + resourceType + " is empty")
+		return nil, errors.New("resource of " + resourceType + " is empty or permission denied")
 	}
-	if len(resListA) > 0 {
-		// 将格式化后的输出写入到标准输出
-		return resListA, nil
-	}
-	log.Info().Msgf("resource of %v is only one", resListA)
-	return nil, errors.New("permission denied")
+	return resListA, nil
 }

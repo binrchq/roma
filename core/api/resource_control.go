@@ -11,6 +11,7 @@ import (
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/permissions"
 	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -24,8 +25,10 @@ func NewResourceControl() *ResourceControl {
 func (r *ResourceControl) AddResource(c *gin.Context) {
 	utilG := utils.Gin{C: c}
 	var resourceData struct {
-		Type string            `json:"type"`
-		Data []json.RawMessage `json:"data"` // 使用 json.RawMessage 保存未解码的 JSON 字符串
+		Type    string            `json:"type"`
+		Data    []json.RawMessage `json:"data"`     // 使用 json.RawMessage 保存未解码的 JSON 字符串
+		Role    string            `json:"role"`     // 可选的角色名称
+		SpaceID *uint             `json:"space_id"` // 可选的空间ID
 	}
 	if err := c.ShouldBindJSON(&resourceData); err != nil {
 		utilG.Response(utils.ERROR, utils.ERROR, err.Error())
@@ -33,6 +36,9 @@ func (r *ResourceControl) AddResource(c *gin.Context) {
 	}
 	// 检查 role 参数是否为空，如果为空，则设置默认值为 "ops"
 	roleName := "ops"
+	if resourceData.Role != "" {
+		roleName = resourceData.Role
+	}
 	// 开启事务
 	tx := global.GetDB().Begin()
 	if tx.Error != nil {
@@ -44,6 +50,23 @@ func (r *ResourceControl) AddResource(c *gin.Context) {
 
 	opRes := operation.NewResourceOperation()
 	opRole := operation.NewRoleOperation()
+	opSpace := operation.NewSpaceOperation()
+
+	// 确定要使用的空间ID
+	var targetSpaceID uint
+	if resourceData.SpaceID != nil && *resourceData.SpaceID > 0 {
+		targetSpaceID = *resourceData.SpaceID
+	} else {
+		// 如果没有指定空间，使用 default 空间
+		defaultSpace, err := opSpace.GetSpaceByName("default")
+		if err != nil {
+			utilG.Response(utils.ERROR, utils.ERROR, "无法找到默认空间，请先创建 default 空间")
+			tx.Rollback()
+			return
+		}
+		targetSpaceID = defaultSpace.ID
+	}
+
 	for id, r := range resourceData.Data {
 		var resModel model.Resource
 		// 将 r 转换为相应的资源类型并创建资源
@@ -102,6 +125,17 @@ func (r *ResourceControl) AddResource(c *gin.Context) {
 			tx.Rollback() // 回滚事务
 			continue
 		}
+
+		// 将资源分配到空间
+		err = opSpace.AssignResourceToSpace(targetSpaceID, resModel.GetID(), resourceData.Type)
+		if err != nil {
+			errMsg := fmt.Sprintf("资源空间分配失败:原因.%s 数据No.%d", err.Error(), id)
+			failedMsgs = append(failedMsgs, errMsg)
+			log.Println(errMsg) // 记录错误到日志
+			failedCount++
+			tx.Rollback() // 回滚事务
+			continue
+		}
 	}
 
 	if failedCount > 0 {
@@ -118,9 +152,10 @@ func (r *ResourceControl) AddResource(c *gin.Context) {
 func (r *ResourceControl) UpdateResource(c *gin.Context) {
 	utilG := utils.Gin{C: c}
 	var resourceData struct {
-		Type string            `json:"type"`
-		Data []json.RawMessage `json:"data"` // 使用 json.RawMessage 保存未解码的 JSON 字符串
-		Role string            `json:"role"` // 可选的角色名称
+		Type    string            `json:"type"`
+		Data    []json.RawMessage `json:"data"`     // 使用 json.RawMessage 保存未解码的 JSON 字符串
+		Role    string            `json:"role"`     // 可选的角色名称
+		SpaceID *uint             `json:"space_id"` // 可选的空间ID
 	}
 	if err := c.ShouldBindJSON(&resourceData); err != nil {
 		utilG.Response(utils.ERROR, utils.ERROR, err.Error())
@@ -137,6 +172,8 @@ func (r *ResourceControl) UpdateResource(c *gin.Context) {
 
 	opRes := operation.NewResourceOperation()
 	opRole := operation.NewRoleOperation()
+	opSpace := operation.NewSpaceOperation()
+
 	for id, r := range resourceData.Data {
 		var resModel model.Resource
 		// 将 r 转换为相应的资源类型并创建资源
@@ -192,7 +229,23 @@ func (r *ResourceControl) UpdateResource(c *gin.Context) {
 
 			err = opRes.CreateResourceAndAssociate(int64(role.ID), resModel.GetID(), resourceData.Type)
 			if err != nil {
-				errMsg := fmt.Sprintf("资源赋值失败:原因.%s 数据No.%d", err.Error(), id)
+				errMsg := fmt.Sprintf("资源角色关联失败:原因.%s 数据No.%d", err.Error(), id)
+				failedMsgs = append(failedMsgs, errMsg)
+				log.Println(errMsg) // 记录错误到日志
+				failedCount++
+				tx.Rollback() // 回滚事务
+				continue
+			}
+		}
+		// 如果提供了空间ID，更新资源的空间分配
+		if resourceData.SpaceID != nil && *resourceData.SpaceID > 0 {
+			// 先删除旧的关联
+			global.GetDB().Where("resource_id = ? AND resource_type = ?", resModel.GetID(), resourceData.Type).
+				Delete(&model.ResourceSpace{})
+			// 创建新的关联
+			err = opSpace.AssignResourceToSpace(*resourceData.SpaceID, resModel.GetID(), resourceData.Type)
+			if err != nil {
+				errMsg := fmt.Sprintf("资源空间分配失败:原因.%s 数据No.%d", err.Error(), id)
 				failedMsgs = append(failedMsgs, errMsg)
 				log.Println(errMsg) // 记录错误到日志
 				failedCount++
@@ -323,10 +376,10 @@ func (r *ResourceControl) GetAllResource(c *gin.Context) {
 		return
 	}
 
-	// 检查是否是 super 或 system 角色（可以查看所有资源）
+	// 检查是否有 super 角色或拥有所有权限的角色（可以查看所有资源）
 	isSuperOrSystem := false
 	for _, role := range roles {
-		if role.Name == "super" || role.Name == "system" {
+		if permissions.IsSuperRole(role) || permissions.HasAllPermissions(role) {
 			isSuperOrSystem = true
 			break
 		}
@@ -405,29 +458,53 @@ func (r *ResourceControl) GetAllResource(c *gin.Context) {
 		}
 	}
 
-	// 去重（基于资源 ID 和类型）并过滤已删除的资源
+	// 去重（基于资源 ID 和类型）并过滤已删除的资源，同时进行权限检查
 	uniqueResources := make(map[string]model.Resource)
 	for _, res := range resList {
 		// 检查资源是否已删除
 		isDeleted := false
+		var resType string
 		switch v := res.(type) {
 		case *model.LinuxConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeLinux
 		case *model.WindowsConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeWindows
 		case *model.DockerConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeDocker
 		case *model.DatabaseConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeDatabase
 		case *model.RouterConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeRouter
 		case *model.SwitchConfig:
 			isDeleted = v.DeletedAt.Valid
+			resType = constants.ResourceTypeSwitch
 		}
 		// 跳过已删除的资源
 		if isDeleted {
 			continue
 		}
+
+		// 使用 CheckResourceAccess 进行权限检查（角色 + 空间）
+		// 对于 super/system 角色，如果配置允许绕过，则跳过检查
+		policy := global.CONFIG.PermissionPolicy
+		skipCheck := false
+		if policy != nil && policy.SuperBypassAll && isSuperOrSystem {
+			skipCheck = true
+		}
+
+		if !skipCheck {
+			// 传入已获取的用户角色，避免重复查询
+			allowed, _ := permissions.CheckResourceAccessWithRoles(user, roles, res.GetID(), resType, "list")
+			if !allowed {
+				continue
+			}
+		}
+
 		// 使用资源名称和 ID 作为唯一键
 		key := fmt.Sprintf("%s-%d", res.GetName(), res.GetID())
 		uniqueResources[key] = res
@@ -474,10 +551,10 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 		return
 	}
 
-	// 检查是否是 super 或 system 角色
+	// 检查是否有 super 角色或拥有所有权限的角色
 	isSuperOrSystem := false
 	for _, role := range roles {
-		if role.Name == "super" || role.Name == "system" {
+		if permissions.IsSuperRole(role) || permissions.HasAllPermissions(role) {
 			isSuperOrSystem = true
 			break
 		}
@@ -539,19 +616,11 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 		return
 	}
 
-	// 如果不是 super/system 角色，检查资源是否分配给该用户
+	// 检查用户是否有权限访问该资源（使用多维度权限检查）
 	if !isSuperOrSystem {
-		hasAccess := false
-		for _, role := range roles {
-			var resourceRole model.ResourceRole
-			if err := opRes.DB.Where("resource_id = ? AND resource_type = ? AND role_id = ?",
-				idInt, resourceType, role.ID).First(&resourceRole).Error; err == nil {
-				hasAccess = true
-				break
-			}
-		}
-		if !hasAccess {
-			utilG.Response(utils.ERROR, utils.ERROR, "Access denied: resource not assigned to your role")
+		allowed, reason := permissions.CheckResourceAccessWithRoles(user, roles, resource.GetID(), resourceType, "get")
+		if !allowed {
+			utilG.Response(utils.ERROR, utils.ERROR, "Permission denied: "+reason)
 			return
 		}
 	}

@@ -33,7 +33,7 @@ func (r *ResourceOperation) CreateResourceAndAssociate(roleId int64, resourceId 
 	resourceRole := &model.ResourceRole{
 		ResourceID:   resourceId,
 		ResourceType: resourceType,
-		RoleID:       roleId,
+		RoleID:       uint(roleId),
 	}
 	// 使用 FirstOrCreate，如果已存在则更新，不存在则创建
 	var existingRole model.ResourceRole

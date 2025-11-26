@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("roma-jwt-secret-key-change-in-production") // TODO: 从配置文件读取
+var jwtSecret = []byte("06b79d28cdf03a575012a36f36d0ee738806b05072548efeca029a5ee1de85a9") // TODO: 从配置文件读取
 
 type Claims struct {
 	UserID   uint   `json:"user_id"`
@@ -50,4 +50,3 @@ func ParseJWT(tokenString string) (*Claims, error) {
 
 	return nil, errors.New("invalid token")
 }
-

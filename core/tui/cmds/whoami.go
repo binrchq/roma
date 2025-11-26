@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/permissions"
 	"binrc.com/roma/core/tui/cmds/itface"
 	"github.com/loganchef/ssh"
 )
@@ -57,8 +59,7 @@ func (cmd *Whoami) Whoami(sess ssh.Session) (string, error) {
 	// 输出用户角色信息
 	if len(userInfo.Roles) > 0 {
 		for _, role := range userInfo.Roles {
-			fmt.Fprintf(w, "Role \t:%s - %s\n", role.Name, role.Desc)
-			// 输出其他角色属性...
+			fmt.Fprintf(w, "Role \t:%s - %s\n", role.Name, roleSummary(role.Desc))
 		}
 	} else {
 		fmt.Fprintln(w, "User has no roles assigned.")
@@ -72,4 +73,31 @@ func (cmd *Whoami) Whoami(sess ssh.Session) (string, error) {
 func (cmd *Whoami) Usage() string {
 	usageMsg := cmd.flags.FormatUsageln("🍂 %s - Get user(me) information", green(cmd.Name()))
 	return usageMsg
+}
+
+func roleSummary(rawDesc string) string {
+	desc, err := permissions.ParseRoleDescriptor(rawDesc)
+	if err == nil && desc != nil {
+		if strings.TrimSpace(desc.Description) != "" {
+			return desc.Description
+		}
+		if desc.IsSuper {
+			return "all permissions"
+		}
+		var segments []string
+		for _, perm := range desc.Permissions {
+			label := perm.Target
+			if len(perm.Actions) > 0 {
+				label = fmt.Sprintf("%s(%s)", perm.Target, strings.Join(perm.Actions, "|"))
+			}
+			if perm.Scope != nil && perm.Scope.Value != "" {
+				label = fmt.Sprintf("%s scope:%s:%s", label, perm.Scope.Type, perm.Scope.Value)
+			}
+			segments = append(segments, label)
+		}
+		if len(segments) > 0 {
+			return strings.Join(segments, "; ")
+		}
+	}
+	return rawDesc
 }

@@ -13,6 +13,7 @@ import (
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/permissions"
 	"binrc.com/roma/core/tui/cmds/itface"
 	"binrc.com/roma/core/utils"
 	"github.com/loganchef/ssh"
@@ -168,7 +169,14 @@ func (cmd *Ln) handle() (interface{}, error) {
 
 // handleWithCommand 处理连接，支持非交互式执行命令
 func (cmd *Ln) handleWithCommand(execCommand string) (interface{}, error) {
-	roles, err := operation.NewUserOperation().GetUserRolesByUsername(cmd.sess.User())
+	opUser := operation.NewUserOperation()
+	user, err := opUser.GetUserByUsername(cmd.sess.User())
+	if err != nil {
+		log.Error().Err(err).Msg("unable to get user")
+		return nil, errors.New("permission denied: unable to get user")
+	}
+
+	roles, err := opUser.GetUserRolesByUsername(cmd.sess.User())
 	if err != nil {
 		log.Error().Err(err).Msg("unable to get user roles")
 		return nil, err
@@ -176,20 +184,28 @@ func (cmd *Ln) handleWithCommand(execCommand string) (interface{}, error) {
 	searchType, resA := utils.DetermineSearchType(cmd.target)
 	var resListA []model.Resource
 	op := operation.NewResourceOperation()
+	resourceType := cmd.flags.GetOptionValue("type").(string)
+
 	log.Info().Msg("roles:")
 	for _, role := range roles {
-		resList, _ := op.GetResourceListByRoleId(role.ID, cmd.flags.GetOptionValue("type").(string))
+		resList, _ := op.GetResourceListByRoleId(role.ID, resourceType)
 		for _, res := range resList {
 			log.Info().Msgf("-------------------------%v", res.GetName())
 			log.Info().Msgf("searchType: %v", searchType)
 			log.Info().Msgf("resA: %v", resA)
 			if matchResource(res, searchType, resA) {
+				// 使用 CheckResourceAccessWithRoles 检查权限（角色 + 空间），避免重复查询用户角色
+				allowed, reason := permissions.CheckResourceAccessWithRoles(user, roles, res.GetID(), resourceType, "use")
+				if !allowed {
+					log.Debug().Msgf("Resource %s (ID: %d) access denied: %s", res.GetName(), res.GetID(), reason)
+					continue
+				}
 				resListA = append(resListA, res)
 			}
 		}
 	}
 	if len(resListA) == 0 {
-		return nil, errors.New("resource not found")
+		return nil, errors.New("resource not found or permission denied")
 	}
 	if len(resListA) > 1 {
 		return NewLs(cmd.sess, "").Resources(resListA), nil
@@ -199,11 +215,11 @@ func (cmd *Ln) handleWithCommand(execCommand string) (interface{}, error) {
 
 	// 如果有命令，使用非交互式执行
 	if execCommand != "" {
-		return connect.NewConnectionWithCommand(&cmd.sess, Res, cmd.flags.GetOptionValue("type").(string), execCommand)
+		return connect.NewConnectionWithCommand(&cmd.sess, Res, resourceType, execCommand)
 	}
 
 	// 否则使用交互式连接
-	err = connect.NewConnectionLoop(&cmd.sess, Res, cmd.flags.GetOptionValue("type").(string))
+	err = connect.NewConnectionLoop(&cmd.sess, Res, resourceType)
 	if err != nil {
 		return nil, err
 	}

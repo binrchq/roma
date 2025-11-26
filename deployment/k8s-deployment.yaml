@@ -304,25 +304,93 @@ data:
     show = true
     banner = "       ______\n      /\\     \\\n     />.\\_____\\\n   __\\  /  ___/__        _ROMA__\n  /\\  \\/__/\\     \\  ____/\n /O \\____/*?\\_____\\\n \\  /    \\  /     /                 [A seamless solution for remote access, ensuring both efficiency and security.]\n  \\/_____/\\/_____/"
 
+    # 权限蓝图（用于校验与提示，可按需扩展）
+    [[permissions]]
+    name = "user"
+    actions = ["add", "delete", "update", "get", "list"]
+
+    [[permissions]]
+    name = "resource"
+    actions = ["add", "delete", "update", "get", "list", "use"]
+
+    [[permissions]]
+    name = "logs"
+    actions = ["list"]
+
+    # 角色定义（结构化权限）
     [[roles]]
     name = "super"
-    desc = "all permissions [operation:user.(add|delete|update|get|list)]"
+    description = "Super Administrator"
+    is_default_super = true
+      [[roles.permissions]]
+      target = "*"
+      actions = ["*"]
 
     [[roles]]
     name = "system"
-    desc = "system administrator [operation:resource.(add|delete|update|get|list)]"
+    description = "System Administrator"
+      [[roles.permissions]]
+      target = "user"
+      actions = ["get", "list"]
+      [[roles.permissions]]
+      target = "resource"
+      actions = ["add", "delete", "update", "get", "list", "use"]
+      [[roles.permissions]]
+      target = "logs"
+      actions = ["list"]
 
     [[roles]]
     name = "ops"
-    desc = "system operations personnel [operation:resource.(get|list|use)]"
+    description = "Ops engineer"
+      [[roles.permissions]]
+      target = "resource"
+      actions = ["get", "list", "use"]
 
     [[roles]]
     name = "ordinary"
-    desc = "system ordinary [operation:resource-(*peripheral).(get|list)]"
+    description = "Standard user"
+      [[roles.permissions]]
+      target = "resource"
+      actions = ["get", "list"]
 
     [[roles]]
     name = "trial"
-    desc = "system trial [operation:resource-(*trial).(get|list|use)]"
+    description = "Trial user with limited scope"
+      [[roles.permissions]]
+      target = "resource"
+      actions = ["get", "list"]
+      [[roles.permissions]]
+      target = "resource"
+      actions = ["use"]
+        [roles.permissions.scope]
+        type = "include"
+        value = "trial"
+
+    # 权限策略配置
+    [permission_policy]
+    # 是否启用资源角色检查（资源可以指定哪些角色可以访问）
+    enable_resource_role = true
+    # 是否启用空间隔离（资源属于空间，只有空间成员才能访问）
+    enable_space_isolation = true
+    # 是否要求用户角色和资源角色完全匹配（true=必须匹配，false=有任一匹配即可）
+    require_exact_role_match = false
+    # 是否允许 super 角色绕过所有限制（包括资源角色和空间隔离）
+    super_bypass_all = true
+    # 默认空间名称（全局资源所属的空间，留空表示无空间归属）
+    default_space = ""
+
+    # 空间定义（原 projects，现统一使用 spaces）
+    [[spaces]]
+    name = "production"
+    description = "生产环境空间"
+    members = ["super", "system"]  # 用户名列表
+    default_role = "ops"  # 空间内默认角色
+
+    [[spaces]]
+    name = "development"
+    description = "开发环境空间"
+    members = ["super", "system", "ops"]
+    default_role = "ops"
 
 ---
 # Ingress
