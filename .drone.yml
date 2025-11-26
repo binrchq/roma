@@ -72,6 +72,12 @@ steps:
         from_secret: PROD_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
         from_secret: PROD_roma-database-cdb-url
+      ROMA_USER_1ST_NAME:
+        from_secret: PROD_roma-user-1st-name
+      ROMA_USER_1ST_NICKNAME:
+        from_secret: PROD_roma-user-1st-nickname
+      ROMA_USER_1ST_ROLES:
+        from_secret: PROD_roma-user-1st-roles
       HOME: /root
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
@@ -85,6 +91,9 @@ steps:
       - echo "ROMA_CONTROL_PASSPORT_PASSPORT_PUB $ROMA_CONTROL_PASSPORT_PASSPORT_PUB"
       - echo "ROMA_CONTROL_PASSPORT_PASSWORD $ROMA_CONTROL_PASSPORT_PASSWORD"
       - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"
+      - echo "ROMA_USER_1ST_NAME $ROMA_USER_1ST_NAME"
+      - echo "ROMA_USER_1ST_NICKNAME $ROMA_USER_1ST_NICKNAME"
+      - echo "ROMA_USER_1ST_ROLES $ROMA_USER_1ST_ROLES"
       - |
         set -e
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
@@ -97,6 +106,9 @@ steps:
           --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
           --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
           --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
+          --from-literal=ROMA_USER_1ST_NAME="$ROMA_USER_1ST_NAME" \
+          --from-literal=ROMA_USER_1ST_NICKNAME="$ROMA_USER_1ST_NICKNAME" \
+          --from-literal=ROMA_USER_1ST_ROLES="$ROMA_USER_1ST_ROLES" \
           -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to prod
@@ -149,6 +161,12 @@ steps:
         from_secret: DEMO_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
         from_secret: DEMO_roma-database-cdb-url
+      ROMA_USER_1ST_NAME:
+        from_secret: DEMO_roma-user-1st-name
+      ROMA_USER_1ST_NICKNAME:
+        from_secret: DEMO_roma-user-1st-nickname
+      ROMA_USER_1ST_ROLES:
+        from_secret: DEMO_roma-user-1st-roles
       KUBECONFIG:
         from_secret: KUBECONFIG_DATA
       HOME: /root
@@ -164,6 +182,9 @@ steps:
       - echo "ROMA_CONTROL_PASSPORT_PASSPORT_PUB $ROMA_CONTROL_PASSPORT_PASSPORT_PUB"
       - echo "ROMA_CONTROL_PASSPORT_PASSWORD $ROMA_CONTROL_PASSPORT_PASSWORD"
       - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"    
+      - echo "ROMA_USER_1ST_NAME $ROMA_USER_1ST_NAME"
+      - echo "ROMA_USER_1ST_NICKNAME $ROMA_USER_1ST_NICKNAME"
+      - echo "ROMA_USER_1ST_ROLES $ROMA_USER_1ST_ROLES"
       - |
         set -e
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
@@ -176,6 +197,9 @@ steps:
           --from-literal=ROMA_CONTROL_PASSPORT_PASSPORT_PUB="$ROMA_CONTROL_PASSPORT_PASSPORT_PUB" \
           --from-literal=ROMA_CONTROL_PASSPORT_PASSWORD="$ROMA_CONTROL_PASSPORT_PASSWORD" \
           --from-literal=ROMA_DATABASE_CDB_URL="$ROMA_DATABASE_CDB_URL" \
+          --from-literal=ROMA_USER_1ST_NAME="$ROMA_USER_1ST_NAME" \
+          --from-literal=ROMA_USER_1ST_NICKNAME="$ROMA_USER_1ST_NICKNAME" \
+          --from-literal=ROMA_USER_1ST_ROLES="$ROMA_USER_1ST_ROLES" \
           -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to demo
