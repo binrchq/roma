@@ -3,16 +3,16 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: roma-backend
-  namespace: roma-demo
+  name: roma-demo-backend
+  namespace: demo
 
 ---
 # Role for reading Service information
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: roma-backend-role
-  namespace: roma-demo
+  name: roma-demo-backend-role
+  namespace: demo
 rules:
   - apiGroups: [""]
     resources: ["services"]
@@ -23,15 +23,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: roma-backend-rolebinding
-  namespace: roma-demo
+  name: roma-demo-backend-rolebinding
+  namespace: demo
 subjects:
   - kind: ServiceAccount
-    name: roma-backend
-    namespace: roma-demo
+    name: roma-demo-backend
+    namespace: demo
 roleRef:
   kind: Role
-  name: roma-backend-role
+  name: roma-demo-backend-role
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -40,23 +40,23 @@ roleRef:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: roma-backend
-  namespace: roma-demo
+  name: roma-demo-backend
+  namespace: demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: roma-backend
+      app: roma-demo-backend
   template:
     metadata:
       labels:
-        app: roma-backend
+        app: roma-demo-backend
     spec:
-      serviceAccountName: roma-backend
+      serviceAccountName: roma-demo-backend
       imagePullSecrets:
         - name: ali-hk-registry-secret
       containers:
-        - name: roma-backend
+        - name: roma-demo-backend
           imagePullPolicy: Always
           image: registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest
           ports:
@@ -70,9 +70,9 @@ spec:
             - name: APP_ENV
               value: "production"
             - name: ROMA_SSH_SERVICE_NAME
-              value: "roma-backend-ssh-service"
+              value: "roma-demo-backend-ssh-service"
             - name: ROMA_SSH_SERVICE_NAMESPACE
-              value: "roma-demo"
+              value: "demo"
             - name: ROMA_APIKEY_PREFIX
               value: "apikey."
             - name: ROMA_APIKEY_KEY
@@ -146,11 +146,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: roma-backend-service
-  namespace: roma-demo
+  name: roma-demo-backend-service
+  namespace: demo
 spec:
   selector:
-    app: roma-backend
+    app: roma-demo-backend
   ports:
     - protocol: TCP
       port: 2200
@@ -166,15 +166,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: roma-backend-ssh-service
-  namespace: roma-demo
+  name: roma-demo-backend-ssh-service
+  namespace: demo
   labels:
-    app: roma-backend
+    app: roma-demo-backend
     service-type: ssh
 spec:
   type: LoadBalancer
   selector:
-    app: roma-backend
+    app: roma-demo-backend
   ports:
     - protocol: TCP
       port: 2200
@@ -188,7 +188,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: roma-data-pvc
-  namespace: roma-demo
+  namespace: demo
 spec:
   storageClassName: rook-ceph-block
   accessModes:
@@ -203,7 +203,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: roma-config-demo
-  namespace: roma-demo
+  namespace: demo
 data:
   config.toml: |
     title = 'Roma Demo Config'
@@ -342,7 +342,7 @@ apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: redirect-to-https
-  namespace: roma-demo
+  namespace: demo
 spec:
   redirectScheme:
     scheme: https
@@ -355,9 +355,9 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
-    traefik.ingress.kubernetes.io/router.middlewares: roma-demo-redirect-to-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: demo-redirect-to-https@kubernetescrd
   name: roma-demo-ingress
-  namespace: roma-demo
+  namespace: demo
 spec:
   ingressClassName: traefik
   tls:
@@ -370,7 +370,7 @@ spec:
         paths:
           - backend:
               service:
-                name: roma-backend-service
+                name: roma-demo-backend-service
                 port:
                   number: 6999
             path: /
