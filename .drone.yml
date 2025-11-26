@@ -54,7 +54,6 @@ steps:
     environment:
       KUBECONFIG:
         from_secret: kubeconfig_data
-      HOME: /root
       ROMA_APIKEY_KEY:
         from_secret: PROD_roma-apikey-key
       ROMA_USER_1ST_EMAIL:
@@ -73,8 +72,19 @@ steps:
         from_secret: PROD_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
         from_secret: PROD_roma-database-cdb-url
+      HOME: /root
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - echo "You can call the secrets like this examples below."
+      - echo "ROMA_APIKEY_KEY $ROMA_APIKEY_KEY"
+      - echo "ROMA_USER_1ST_EMAIL $ROMA_USER_1ST_EMAIL"
+      - echo "ROMA_USER_1ST_PASSWORD $ROMA_USER_1ST_PASSWORD"
+      - echo "ROMA_USER_1ST_USERNAME $ROMA_USER_1ST_USERNAME"
+      - echo "ROMA_USER_1ST_PUBLIC_KEY $ROMA_USER_1ST_PUBLIC_KEY"
+      - echo "ROMA_CONTROL_PASSPORT_PASSPORT $ROMA_CONTROL_PASSPORT_PASSPORT"
+      - echo "ROMA_CONTROL_PASSPORT_PASSPORT_PUB $ROMA_CONTROL_PASSPORT_PASSPORT_PUB"
+      - echo "ROMA_CONTROL_PASSPORT_PASSWORD $ROMA_CONTROL_PASSPORT_PASSWORD"
+      - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"
       - |
         set -e
         ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
@@ -130,9 +140,6 @@ steps:
   - name: create demo secrets
     image: registry.cn-hongkong.aliyuncs.com/binrcbase/kubectl
     environment:
-      KUBECONFIG:
-        from_secret: kubeconfig_data
-      HOME: /root
       ROMA_APIKEY_KEY:
         from_secret: DEMO_roma-apikey-key
       ROMA_USER_1ST_EMAIL:
@@ -151,8 +158,21 @@ steps:
         from_secret: DEMO_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
         from_secret: DEMO_roma-database-cdb-url
+      KUBECONFIG:
+        from_secret: KUBECONFIG_DATA
+      HOME: /root
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
+      - echo "You can call the secrets like this examples below."
+      - echo "ROMA_APIKEY_KEY $ROMA_APIKEY_KEY"
+      - echo "ROMA_USER_1ST_EMAIL $ROMA_USER_1ST_EMAIL"
+      - echo "ROMA_USER_1ST_PASSWORD $ROMA_USER_1ST_PASSWORD"
+      - echo "ROMA_USER_1ST_USERNAME $ROMA_USER_1ST_USERNAME"
+      - echo "ROMA_USER_1ST_PUBLIC_KEY $ROMA_USER_1ST_PUBLIC_KEY"
+      - echo "ROMA_CONTROL_PASSPORT_PASSPORT $ROMA_CONTROL_PASSPORT_PASSPORT"
+      - echo "ROMA_CONTROL_PASSPORT_PASSPORT_PUB $ROMA_CONTROL_PASSPORT_PASSPORT_PUB"
+      - echo "ROMA_CONTROL_PASSPORT_PASSWORD $ROMA_CONTROL_PASSPORT_PASSWORD"
+      - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"    
       - |
         # 确保所有变量都有值（即使 secret 不存在或值为空）
         # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
