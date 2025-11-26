@@ -135,6 +135,12 @@ spec:
                   optional: true
             - name: ROMA_API_CORS_ALLOW_ORIGINS
               value: "https://roma.c.binrc.com,https://roma.meshwise.cn"
+            - name: TERM
+              value: "xterm-256color"
+            - name: FORCE_COLOR
+              value: "1"
+            - name: NO_COLOR
+              value: "0"
           volumeMounts:
             - name: roma-data
               mountPath: /app/data
@@ -144,11 +150,11 @@ spec:
               readOnly: true
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "100m"
-            limits:
               memory: "1024Mi"
               cpu: "500m"
+            limits:
+              memory: "2048Mi"
+              cpu: "1000m"
           livenessProbe:
             httpGet:
               path: /health
