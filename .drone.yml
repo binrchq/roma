@@ -56,23 +56,23 @@ steps:
         from_secret: kubeconfig_data
       HOME: /root
       ROMA_APIKEY_KEY:
-        from_secret: PROD_roma_apikey_key
+        from_secret: PROD_roma-apikey-key
       ROMA_USER_1ST_EMAIL:
-        from_secret: PROD_roma_user_1st_email
+        from_secret: PROD_roma-user-1st-email
       ROMA_USER_1ST_PASSWORD:
-        from_secret: PROD_roma_user_1st_password
+        from_secret: PROD_roma-user-1st-password
       ROMA_USER_1ST_USERNAME:
-        from_secret: PROD_roma_user_1st_username
+        from_secret: PROD_roma-user-1st-username
       ROMA_USER_1ST_PUBLIC_KEY:
-        from_secret: PROD_roma_user_1st_public_key
+        from_secret: PROD_roma-user-1st-public-key
       ROMA_CONTROL_PASSPORT_PASSPORT:
-        from_secret: PROD_roma_control_passport_passport
+        from_secret: PROD_roma-control-passport-passport
       ROMA_CONTROL_PASSPORT_PASSPORT_PUB:
-        from_secret: PROD_roma_control_passport_passport_pub
+        from_secret: PROD_roma-control-passport-passport-pub
       ROMA_CONTROL_PASSPORT_PASSWORD:
-        from_secret: PROD_roma_control_passport_password
+        from_secret: PROD_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
-        from_secret: PROD_roma_database_cdb_url
+        from_secret: PROD_roma-database-cdb-url
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
       - |
@@ -134,23 +134,23 @@ steps:
         from_secret: kubeconfig_data
       HOME: /root
       ROMA_APIKEY_KEY:
-        from_secret: DEMO_roma_apikey_key
+        from_secret: DEMO_roma-apikey-key
       ROMA_USER_1ST_EMAIL:
-        from_secret: DEMO_roma_user_1st_email
+        from_secret: DEMO_roma-user-1st-email
       ROMA_USER_1ST_PASSWORD:
-        from_secret: DEMO_roma_user_1st_password
+        from_secret: DEMO_roma-user-1st-password
       ROMA_USER_1ST_USERNAME:
-        from_secret: DEMO_roma_user_1st_username
+        from_secret: DEMO_roma-user-1st-username
       ROMA_USER_1ST_PUBLIC_KEY:
-        from_secret: DEMO_roma_user_1st_public_key
+        from_secret: DEMO_roma-user-1st-public-key
       ROMA_CONTROL_PASSPORT_PASSPORT:
-        from_secret: DEMO_roma_control_passport_passport
+        from_secret: DEMO_roma-control-passport-passport
       ROMA_CONTROL_PASSPORT_PASSPORT_PUB:
-        from_secret: DEMO_roma_control_passport_passport_pub
+        from_secret: DEMO_roma-control-passport-passport-pub
       ROMA_CONTROL_PASSPORT_PASSWORD:
-        from_secret: DEMO_roma_control_passport_password
+        from_secret: DEMO_roma-control-passport-password
       ROMA_DATABASE_CDB_URL:
-        from_secret: DEMO_roma_database_cdb_url
+        from_secret: DEMO_roma-database-cdb-url
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
       - |
@@ -193,160 +193,3 @@ steps:
             deployment/k8s-deployment.yaml > /drone/src/k8s-deployment.demo.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig apply -f /drone/src/k8s-deployment.demo.yaml
       - kubectl --kubeconfig=/drone/src/kubeconfig rollout status deployment/roma-backend -n $NAMESPACE --timeout=5m
-
-
-# ============================================================================
-# 4. SECRET DEFINITIONS - 所有 Secrets 定义
-# ============================================================================
----
-kind: secret
-name: kubeconfig_data
-get:
-  path: kubeconfig-data
-  name: KUBECONFIG_DATA
-
----
-kind: secret
-name: docker_username
-get:
-  path: docker-username
-  name: DOCKER_USERNAME
-
----
-kind: secret
-name: docker_password
-get:
-  path: docker-password
-  name: DOCKER_PASSWORD
-
-# ============================================================================
-# Production Environment Secrets - 带 PROD_ 前缀
-# ============================================================================
----
-kind: secret
-name: PROD_roma_apikey_key
-get:
-  path: PROD_roma-apikey-key
-  name: PROD_ROMA_APIKEY_KEY
-
----
-kind: secret
-name: PROD_roma_user_1st_email
-get:
-  path: PROD_roma-user-1st-email
-  name: PROD_ROMA_USER_1ST_EMAIL
-
----
-kind: secret
-name: PROD_roma_user_1st_password
-get:
-  path: PROD_roma-user-1st-password
-  name: PROD_ROMA_USER_1ST_PASSWORD
-
----
-kind: secret
-name: PROD_roma_user_1st_username
-get:
-  path: PROD_roma-user-1st-username
-  name: PROD_ROMA_USER_1ST_USERNAME
-
----
-kind: secret
-name: PROD_roma_user_1st_public_key
-get:
-  path: PROD_roma-user-1st-public-key
-  name: PROD_ROMA_USER_1ST_PUBLIC_KEY
-
----
-kind: secret
-name: PROD_roma_control_passport_passport
-get:
-  path: PROD_roma-control-passport-passport
-  name: PROD_ROMA_CONTROL_PASSPORT_PASSPORT
-
----
-kind: secret
-name: PROD_roma_control_passport_passport_pub
-get:
-  path: PROD_roma-control-passport-passport-pub
-  name: PROD_ROMA_CONTROL_PASSPORT_PASSPORT_PUB
-
----
-kind: secret
-name: PROD_roma_control_passport_password
-get:
-  path: PROD_roma-control-passport-password
-  name: PROD_ROMA_CONTROL_PASSPORT_PASSWORD
-
----
-kind: secret
-name: PROD_roma_database_cdb_url
-get:
-  path: PROD_roma-database-cdb-url
-  name: PROD_ROMA_DATABASE_CDB_URL
-
-# ============================================================================
-# Demo Environment Secrets - 带 DEMO_ 前缀
-# ============================================================================
----
-kind: secret
-name: DEMO_roma_apikey_key
-get:
-  path: DEMO_roma-apikey-key
-  name: DEMO_ROMA_APIKEY_KEY
-
----
-kind: secret
-name: DEMO_roma_user_1st_email
-get:
-  path: DEMO_roma-user-1st-email
-  name: DEMO_ROMA_USER_1ST_EMAIL
-
----
-kind: secret
-name: DEMO_roma_user_1st_password
-get:
-  path: DEMO_roma-user-1st-password
-  name: DEMO_ROMA_USER_1ST_PASSWORD
-
----
-kind: secret
-name: DEMO_roma_user_1st_username
-get:
-  path: DEMO_roma-user-1st-username
-  name: DEMO_ROMA_USER_1ST_USERNAME
-
----
-kind: secret
-name: DEMO_roma_user_1st_public_key
-get:
-  path: DEMO_roma-user-1st-public-key
-  name: DEMO_ROMA_USER_1ST_PUBLIC_KEY
-
----
-kind: secret
-name: DEMO_roma_control_passport_passport
-get:
-  path: DEMO_roma-control-passport-passport
-  name: DEMO_ROMA_CONTROL_PASSPORT_PASSPORT
-
----
-kind: secret
-name: DEMO_roma_control_passport_passport_pub
-get:
-  path: DEMO_roma-control-passport-passport-pub
-  name: DEMO_ROMA_CONTROL_PASSPORT_PASSPORT_PUB
-
----
-kind: secret
-name: DEMO_roma_control_passport_password
-get:
-  path: DEMO_roma-control-passport-password
-  name: DEMO_ROMA_CONTROL_PASSPORT_PASSWORD
-
----
-kind: secret
-name: DEMO_roma_database_cdb_url
-get:
-  path: DEMO_roma-database-cdb-url
-  name: DEMO_ROMA_DATABASE_CDB_URL
