@@ -87,15 +87,6 @@ steps:
       - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"
       - |
         set -e
-        ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
-        ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
-        ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
-        ROMA_USER_1ST_USERNAME="${ROMA_USER_1ST_USERNAME:-}"
-        ROMA_USER_1ST_PUBLIC_KEY="${ROMA_USER_1ST_PUBLIC_KEY:-}"
-        ROMA_CONTROL_PASSPORT_PASSPORT="${ROMA_CONTROL_PASSPORT_PASSPORT:-}"
-        ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
-        ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
-        ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
           --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
           --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
@@ -174,17 +165,7 @@ steps:
       - echo "ROMA_CONTROL_PASSPORT_PASSWORD $ROMA_CONTROL_PASSPORT_PASSWORD"
       - echo "ROMA_DATABASE_CDB_URL $ROMA_DATABASE_CDB_URL"    
       - |
-        # 确保所有变量都有值（即使 secret 不存在或值为空）
-        # 如果 secret 不存在，Drone 不会设置环境变量，使用默认值避免错误
-        ROMA_APIKEY_KEY="${ROMA_APIKEY_KEY:-}"
-        ROMA_USER_1ST_EMAIL="${ROMA_USER_1ST_EMAIL:-}"
-        ROMA_USER_1ST_PASSWORD="${ROMA_USER_1ST_PASSWORD:-}"
-        ROMA_USER_1ST_USERNAME="${ROMA_USER_1ST_USERNAME:-}"
-        ROMA_USER_1ST_PUBLIC_KEY="${ROMA_USER_1ST_PUBLIC_KEY:-}"
-        ROMA_CONTROL_PASSPORT_PASSPORT="${ROMA_CONTROL_PASSPORT_PASSPORT:-}"
-        ROMA_CONTROL_PASSPORT_PASSPORT_PUB="${ROMA_CONTROL_PASSPORT_PASSPORT_PUB:-}"
-        ROMA_CONTROL_PASSPORT_PASSWORD="${ROMA_CONTROL_PASSPORT_PASSWORD:-}"
-        ROMA_DATABASE_CDB_URL="${ROMA_DATABASE_CDB_URL:-}"
+        set -e
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
           --from-literal=ROMA_APIKEY_KEY="$ROMA_APIKEY_KEY" \
           --from-literal=ROMA_USER_1ST_EMAIL="$ROMA_USER_1ST_EMAIL" \
