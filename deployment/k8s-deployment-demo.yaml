@@ -136,7 +136,7 @@ spec:
       volumes:
         - name: roma-data
           persistentVolumeClaim:
-            claimName: roma-data-pvc
+            claimName: roma-demo-data-pvc
         - name: config
           configMap:
             name: roma-config-demo
@@ -183,11 +183,11 @@ spec:
   sessionAffinity: ClientIP
 
 ---
-# PersistentVolumeClaim for data
+# PersistentVolumeClaim for data (demo 环境使用独立名称)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: roma-data-pvc
+  name: roma-demo-data-pvc
   namespace: demo
 spec:
   storageClassName: rook-ceph-block
@@ -195,7 +195,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi
+      storage: 30Gi  # 增加到 10Gi，避免与现有 PVC 冲突
 
 ---
 # ConfigMap for demo config.toml (示例配置)
