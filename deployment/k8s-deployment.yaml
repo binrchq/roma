@@ -133,6 +133,24 @@ spec:
                   name: roma-secrets
                   key: ROMA_DATABASE_CDB_URL
                   optional: true
+            - name: ROMA_USER_1ST_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_NAME
+                  optional: true
+            - name: ROMA_USER_1ST_NICKNAME
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_NICKNAME
+                  optional: true
+            - name: ROMA_USER_1ST_ROLES
+              valueFrom:
+                secretKeyRef:
+                  name: roma-secrets
+                  key: ROMA_USER_1ST_ROLES
+                  optional: true
             - name: ROMA_API_CORS_ALLOW_ORIGINS
               value: "https://roma.c.binrc.com,https://roma.meshwise.cn"
             - name: TERM
