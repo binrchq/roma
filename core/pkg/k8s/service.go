@@ -74,4 +74,3 @@ func GetLoadBalancerAddressFromEnv() (*ServiceInfo, error) {
 
 	return GetLoadBalancerAddress(serviceName, namespace)
 }
-
