@@ -1,12 +1,12 @@
-curl -X POST -H "Content-Type: application/json" -H "apikey:apikey.AAAA2EAAHBZY26A25wOraC1c2E2BxkKFrNmWoLMOXwWVnwFv5s7Q8w" -d '{
+curl -X POST -H "Content-Type: application/json" -H "apikey:apikey.YOUR_API_KEY_HERE" -d '{
   "type":"linux",
   "data": [
     {
-      "hostname": "hk2",
+      "hostname": "server1",
       "port": 22,
-      "ipv4_pub": "159.138.2.226",
+      "ipv4_pub": "203.0.113.10",
       "port_actual": 22,
-      "ipv4_priv": "10.2.0.6",
+      "ipv4_priv": "192.168.1.10",
       "ipv6": "",
       "port_ipv6": 22,
       "password": "",
@@ -15,11 +15,11 @@ curl -X POST -H "Content-Type: application/json" -H "apikey:apikey.AAAA2EAAHBZY2
       "description": "Example Linux configuration"
     },
     {
-      "hostname": "js",
+      "hostname": "server2",
       "port": 22,
       "ipv4_pub": "",
       "port_actual": 22,
-      "ipv4_priv": "10.2.0.4",
+      "ipv4_priv": "192.168.1.20",
       "ipv6": "",
       "port_ipv6": 22,
       "password": "",

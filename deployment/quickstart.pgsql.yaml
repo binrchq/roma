@@ -92,6 +92,7 @@ services:
       - "${WEB_PORT:-7000}:80"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://roma:6999/api/v1}
+      - VITE_ENV=${VITE_ENV:-development}
     networks:
       - roma-network
     healthcheck:

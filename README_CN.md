@@ -3,8 +3,12 @@
 ![Static Badge](https://img.shields.io/badge/License-AGPL_v3-blue)
 ![Static Badge](https://img.shields.io/badge/lightweight-green)
 ![Static Badge](https://img.shields.io/badge/AI-Powered-orange)
+![Static Badge](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![Static Badge](https://img.shields.io/badge/Demo-在线体验-success)
 
 **ROMA** 是一个 AI 驱动的、使用 Go 语言开发的超轻量级跳板机（堡垒机）服务，提供安全高效的远程访问解决方案，并通过 Model Context Protocol (MCP) 提供原生 AI 集成。
+
+**相关项目：** [Web 界面](https://github.com/binrchq/roma-web) • [MCP 服务器](https://github.com/binrchq/roma-mcp) • [VSCode 扩展](https://github.com/binrchq/roma-vsc-ext) • [官方网站](https://roma.binrc.com)
 
 ---
 
@@ -14,6 +18,31 @@ Language: [English](./README.md)
   <img src="./readme.res/logo.png" alt="ROMA Logo" width="100" />
 </div>
 
+## 🚀 立即体验 ROMA！
+
+### Docker 快速启动（< 2 分钟）
+
+```bash
+# 1. 下载快速启动配置文件
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+
+# 2. 启动 ROMA
+docker compose -f quickstart.yaml up -d
+
+# 3. 访问 Web UI
+open http://localhost:7000
+```
+
+**演示账号：**
+- 用户名：`demo`
+- 密码：`demo123456`
+
+### 在线演示（无需安装）
+
+🌐 **https://roma-demo.binrc.com**
+- 凭证：***demo/demo123456***
+
+---
 
 ## 🎯 什么是 ROMA？
 
@@ -321,7 +350,84 @@ AI 会自动：
 
 ## 🚀 快速开始
 
-### 1. 安装
+### 方案 A：Docker 快速启动（推荐）
+
+最快的体验方式 - 无需 git clone！
+
+```bash
+# 1. 下载快速启动配置
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+
+# 2. 启动所有服务
+docker compose -f quickstart.yaml up -d
+
+# 3. 访问服务
+# - Web UI: http://localhost:7000
+# - API: http://localhost:6999
+# - SSH: localhost:2200
+```
+
+**演示账号：**
+```
+用户名：demo
+密码：demo123456
+邮箱：test@roma.binrc.com
+```
+
+> ⚠️ **安全提示**：生产环境使用前请修改默认密码！
+
+**包含的服务：**
+- ✅ ROMA 后端（API + SSH 服务）
+- ✅ ROMA Web UI（React 前端）
+- ✅ SQLite 数据库（轻量级，无需外部数据库）
+- ✅ 预配置的演示账号
+
+**验证安装：**
+```bash
+# 检查容器状态
+docker compose -f quickstart.yaml ps
+
+# 查看日志
+docker compose -f quickstart.yaml logs -f
+
+# SSH 连接到 ROMA 跳板机
+ssh demo@localhost -p 2200
+# 密码：demo123456
+
+# 在 ROMA TUI 中：
+roma> ls
+roma> whoami
+roma> help
+```
+
+**自定义配置：**
+```bash
+# 创建自定义环境文件
+cat > .env << EOF
+TAG=latest
+WEB_PORT=8080
+ROMA_SSH_PORT=2200
+ROMA_API_PORT=6999
+ROMA_USER_1ST_USERNAME=admin
+ROMA_USER_1ST_PASSWORD=你的强密码123!
+EOF
+
+# 使用自定义配置启动
+docker compose -f quickstart.yaml up -d
+```
+
+**停止和清理：**
+```bash
+# 停止服务
+docker compose -f quickstart.yaml down
+
+# 删除所有数据（包括数据库）
+docker compose -f quickstart.yaml down -v
+```
+
+---
+
+### 方案 B：手动安装
 
 ```bash
 git clone https://github.com/binrchq/roma.git
@@ -329,7 +435,7 @@ cd roma
 go build -o roma cmd/roma/main.go
 ```
 
-### 2. 配置
+### 配置
 
 创建 `configs/config.toml`:
 
@@ -350,14 +456,14 @@ prefix = 'apikey.'
 key = 'your-api-key-here'
 
 [user_1st]
-username = 'super'
-email = 'super@example.com'
-password = 'super001.'
+username = 'admin'
+email = 'admin@example.com'
+password = 'ChangeMe123!'  # ⚠️ 请修改此密码！
 public_key = 'ssh-rsa AAAAB3...'  # 您的 SSH 公钥
 roles = "super,system,ops"
 ```
 
-### 3. 启动 ROMA
+### 启动 ROMA
 
 ```bash
 ./roma -c configs/config.toml
@@ -367,10 +473,10 @@ ROMA 将启动：
 - **SSH 服务** 在端口 2200（跳板机）
 - **API 服务** 在端口 6999（RESTful API）
 
-### 4. 通过 SSH 连接
+### 通过 SSH 连接
 
 ```bash
-ssh super@your-roma-server -p 2200 -i ~/.ssh/your_key
+ssh admin@your-roma-server -p 2200 -i ~/.ssh/your_key
 ```
 
 您将看到 ROMA TUI，包含以下命令：
@@ -380,7 +486,7 @@ ssh super@your-roma-server -p 2200 -i ~/.ssh/your_key
 - `whoami` - 用户信息
 - `help` - 命令帮助
 
-### 5. 设置 MCP Bridge（可选）
+### 设置 MCP Bridge（可选）
 
 ```bash
 # 编译 MCP Bridge
@@ -390,7 +496,7 @@ go build -o roma-mcp-bridge
 # 配置环境变量
 export ROMA_SSH_HOST="your-roma-server"
 export ROMA_SSH_PORT="2200"
-export ROMA_SSH_USER="super"
+export ROMA_SSH_USER="admin"
 export ROMA_SSH_KEY="$(cat ~/.ssh/your_private_key)"
 
 # 测试
@@ -401,13 +507,200 @@ export ROMA_SSH_KEY="$(cat ~/.ssh/your_private_key)"
 
 ---
 
+## 🎮 演示与测试
+
+### 在线演示
+
+无需安装即可试用 ROMA：
+
+🌐 **演示地址**：https://roma-demo.binrc.com
+
+**演示凭证：**
+- 凭证：***demo/demo123456***
+- 只读操作以保证安全
+- ⚠️ 演示数据每 24 小时重置一次
+
+---
+
+### 本地演示环境
+
+快速搭建本地演示环境：
+
+```bash
+# 1. 下载并启动 ROMA
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+docker compose -f quickstart.yaml up -d
+
+# 2. 访问 Web UI
+open http://localhost:7000
+
+# 3. 使用演示账号登录
+# 用户名：demo
+# 密码：demo123456
+```
+
+**演示账号详情：**
+
+凭证配置在 `deployment/config.toml` 的 `[user_1st]` 部分。
+
+**默认角色：**
+- `super` - 完整的管理员访问权限
+- `system` - 系统资源管理
+- `ops` - 运维和监控
+- `ordinary` - 基本资源访问
+
+**可以测试的功能：**
+
+1. **Web UI 功能：**
+   - 带资源统计的仪表盘
+   - 资源管理（Linux、Windows、Docker、数据库、路由器、交换机）
+   - 用户和角色管理（仅超级管理员）
+   - 审计日志查看器
+   - SSH 密钥管理
+
+2. **SSH 跳板机：**
+   ```bash
+   # 生成 SSH 密钥（如果还没有）
+   ssh-keygen -t rsa -b 4096 -f ~/.ssh/roma_demo_key
+   
+   # 通过 Web UI 上传公钥：
+   # 设置 -> SSH 密钥 -> 上传公钥
+   
+   # 连接到 ROMA
+   ssh demo@localhost -p 2200 -i ~/.ssh/roma_demo_key
+   
+   # 尝试 ROMA 命令
+   roma> ls              # 列出资源
+   roma> use linux       # 切换到 Linux 上下文
+   roma> ls              # 列出 Linux 资源
+   roma> whoami          # 显示用户信息
+   roma> help            # 显示所有命令
+   ```
+
+3. **API 测试：**
+   ```bash
+   # 从 Web UI 获取 API 密钥：设置 -> API 密钥
+   
+   # 测试 API
+   curl -H "apikey: your-api-key" http://localhost:6999/api/v1/resources
+   ```
+
+4. **MCP Bridge（AI 集成）：**
+   ```bash
+   # 编译 MCP bridge
+   cd mcp/bridge
+   go build -o roma-mcp-bridge
+   
+   # 配置本地演示环境
+   export ROMA_SSH_HOST="localhost"
+   export ROMA_SSH_PORT="2200"
+   export ROMA_SSH_USER="demo"
+   export ROMA_SSH_KEY="$(cat ~/.ssh/roma_demo_key)"
+   
+   # 测试
+   ./roma-mcp-bridge
+   ```
+
+**示例资源（演示环境预配置）：**
+
+演示环境包含用于测试的示例资源：
+- 📦 Linux 服务器（web-01、db-01）
+- 🐳 Docker 容器
+- 🗄️ MySQL 数据库（demo-db）
+- 🛣️ 网络设备（router-01、switch-01）
+
+**清理演示环境：**
+```bash
+# 停止并删除容器
+docker compose -f quickstart.yaml down
+
+# 删除卷（可选，删除所有数据）
+docker compose -f quickstart.yaml down -v
+```
+
+---
+
+### 高级选项：使用 MySQL/PostgreSQL 的 Docker 部署
+
+用于生产环境的外部数据库部署：
+
+```bash
+# 克隆仓库
+git clone https://github.com/binrchq/roma.git
+cd roma/deployment
+
+# 选项 1：MySQL
+docker compose -f quickstart.mysql.yaml up -d
+
+# 选项 2：PostgreSQL
+docker compose -f quickstart.pgsql.yaml up -d
+```
+
+更多配置选项请查看 [deployment/](deployment/) 目录。
+
+---
+
 ## 📚 文档
 
 - **[MCP Bridge 指南](mcp/bridge/README.md)** - 完整的 MCP Bridge 文档
 - **[MCP Bridge 架构](mcp/bridge/ARCHITECTURE.md)** - 架构详情
 - **[资源支持说明](docs/RESOURCE_SUPPORT.md)** - 详细的资源类型支持
-- **[Web 前端](web/frontend/README.md)** - Web UI 文档
-- **[VSCode 扩展](web/vscode-extension/README.md)** - IDE 集成
+- **[API 文档](docs/API.md)** - RESTful API 参考
+
+---
+
+## 🔗 相关项目
+
+ROMA 生态系统包含多个项目，适用于不同场景：
+
+### 🌐 [roma-web](https://github.com/binrchq/roma-web)
+基于 React 的现代化 Web 管理界面。
+
+**功能特性：**
+- 📊 实时统计的资源仪表盘
+- 🖥️ 基于 Web 的 SSH 终端
+- 👥 用户和角色管理
+- 🔑 SSH 密钥管理
+- 📝 审计日志查看器
+- 🎨 现代化、响应式设计
+
+**快速开始：**
+```bash
+docker pull binrc/roma-web:latest
+# 或访问：https://github.com/binrchq/roma-web
+```
+
+---
+
+### 🤖 [roma-mcp](https://github.com/binrchq/roma-mcp)
+独立的 MCP 服务器，用于 AI 集成（MCP Bridge 的替代方案）。
+
+**功能特性：**
+- 🔌 完整的 MCP 协议支持
+- 🚀 独立部署
+- 🛠️ 20+ AI 工具用于基础设施管理
+- 💡 兼容 Claude Desktop、Cursor 等 MCP 客户端
+
+**使用场景：**
+- 需要独立的 MCP 服务器
+- 希望在不同机器上运行 MCP 服务器
+- 需要自定义 MCP 配置
+
+**快速开始：**
+```bash
+git clone https://github.com/binrchq/roma-mcp.git
+cd roma-mcp
+go build -o roma-mcp-server
+./roma-mcp-server
+```
+
+### 📊 项目对比
+
+| 项目 | 用途 | 技术栈 | 部署方式 |
+|------|------|--------|---------|
+| **roma** | 核心跳板机 | Go | 二进制/Docker |
+| **roma-web** | Web 管理界面 | React | Docker/Nginx |
+| **roma-mcp** | 独立 MCP 服务器 | Go | 二进制/Docker |
 
 ---
 

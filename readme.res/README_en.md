@@ -65,12 +65,12 @@ prefix = 'apikey.'
 key = 'AAAA2EAAHBZY26A25wOraC1c--------------------------xxx'    #Key used for interface
 
 [user_1st]
-email = 'super@test.x'
+email = 'admin@example.com'
 name = 'Super admin'
-nickname = 'Super'
-password = 'super001.'
-public_key = '#<Superuser.s private key>'
-username = 'super'
+nickname = 'Admin'
+password = 'ChangeMe123!'
+public_key = '#<Your SSH public key here>'
+username = 'admin'
 roles = "super,system,ops,ordinary,trial"
 
 [control_passport]

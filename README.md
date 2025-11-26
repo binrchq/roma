@@ -3,8 +3,12 @@
 ![Static Badge](https://img.shields.io/badge/License-AGPL_v3-blue)
 ![Static Badge](https://img.shields.io/badge/lightweight-green)
 ![Static Badge](https://img.shields.io/badge/AI-Powered-orange)
+![Static Badge](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![Static Badge](https://img.shields.io/badge/Demo-Online-success)
 
 **ROMA** is an AI-powered, ultra-lightweight jump server (bastion host) built with Go. It provides secure and efficient remote access solutions with native AI integration through Model Context Protocol (MCP). 
+
+**Related Projects:** [Web UI](https://github.com/binrchq/roma-web) • [MCP Server](https://github.com/binrchq/roma-mcp) • [VSCode Extension](https://github.com/binrchq/roma-vsc-ext) • [Official Site](https://roma.binrc.com)
 
 Language: [中文](./README_CN.md)
 
@@ -13,6 +17,32 @@ Language: [中文](./README_CN.md)
 <div align="left">
   <img src="./readme.res/logo.png" alt="ROMA Logo" width="100" />
 </div>
+
+## 🚀 Try ROMA Now!
+
+### Quick Start with Docker (< 2 minutes)
+
+```bash
+# 1. Download quickstart file
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+
+# 2. Start ROMA
+docker compose -f quickstart.yaml up -d
+
+# 3. Access Web UI
+open http://localhost:7000
+```
+
+**Demo Credentials:**
+- Username: `demo`
+- Password: `demo123456`
+
+### Online Demo (No Installation)
+
+🌐 **https://roma-demo.binrc.com**
+- Credentials is ***demo/demo123456***
+
+---
 
 ## 🎯 What is ROMA?
 
@@ -318,7 +348,84 @@ The AI will automatically:
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### Option A: Docker Quick Start (Recommended)
+
+The fastest way to try ROMA - no git clone needed!
+
+```bash
+# 1. Download quickstart configuration
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+
+# 2. Start all services
+docker compose -f quickstart.yaml up -d
+
+# 3. Access services
+# - Web UI: http://localhost:7000
+# - API: http://localhost:6999
+# - SSH: localhost:2200
+```
+
+**Demo Credentials:**
+```
+Username: demo
+Password: demo123456
+Email: test@roma.binrc.com
+```
+
+> ⚠️ **Security Note**: Change the password after first login for production use!
+
+**What's Included:**
+- ✅ ROMA Backend (API + SSH Server)
+- ✅ ROMA Web UI (React Frontend)  
+- ✅ SQLite Database (lightweight, no external DB needed)
+- ✅ Pre-configured demo account
+
+**Verify Installation:**
+```bash
+# Check container status
+docker compose -f quickstart.yaml ps
+
+# View logs
+docker compose -f quickstart.yaml logs -f
+
+# SSH into ROMA jump server
+ssh demo@localhost -p 2200
+# Password: demo123456
+
+# In ROMA TUI:
+roma> ls
+roma> whoami
+roma> help
+```
+
+**Customize Configuration:**
+```bash
+# Create custom environment file
+cat > .env << EOF
+TAG=latest
+WEB_PORT=8080
+ROMA_SSH_PORT=2200
+ROMA_API_PORT=6999
+ROMA_USER_1ST_USERNAME=admin
+ROMA_USER_1ST_PASSWORD=YourStrongPassword123!
+EOF
+
+# Start with custom settings
+docker compose -f quickstart.yaml up -d
+```
+
+**Stop and Clean Up:**
+```bash
+# Stop services
+docker compose -f quickstart.yaml down
+
+# Remove all data (including database)
+docker compose -f quickstart.yaml down -v
+```
+
+---
+
+### Option B: Manual Installation
 
 ```bash
 git clone https://github.com/binrchq/roma.git
@@ -347,9 +454,9 @@ prefix = 'apikey.'
 key = 'your-api-key-here'
 
 [user_1st]
-username = 'super'
-email = 'super@example.com'
-password = 'super001.'
+username = 'admin'
+email = 'admin@example.com'
+password = 'ChangeMe123!'  # ⚠️ Change this!
 public_key = 'ssh-rsa AAAAB3...'  # Your SSH public key
 roles = "super,system,ops"
 ```
@@ -398,13 +505,204 @@ Then configure your AI assistant (Claude Desktop, Cursor, etc.) to use the bridg
 
 ---
 
+## 🎮 Demo & Testing
+
+### Online Demo
+
+Try ROMA without installation:
+
+🌐 **Demo URL**: https://roma-demo.binrc.com
+
+**Demo Credentials:**
+- Available on the demo login page
+- Read-only operations for safety
+
+**Demo Features:**
+- ✅ Full Web UI access
+- ✅ Pre-configured test resources
+- ✅ Read-only operations for safety
+- ⚠️ Demo data resets every 24 hours
+
+---
+
+### Local Demo Setup
+
+Quickly set up a local demo environment with sample data:
+
+```bash
+# 1. Download and start ROMA
+curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
+docker compose -f quickstart.yaml up -d
+
+# 2. Access Web UI
+open http://localhost:7000
+
+# 3. Login with demo credentials
+# Username: demo
+# Password: demo123456
+```
+
+**Demo Account Details:**
+
+Credentials are configured in `deployment/config.toml` under `[user_1st]` section.
+
+**Default Roles:**
+- `super` - Full administrative access
+- `system` - System resource management
+- `ops` - Operations and monitoring
+- `ordinary` - Basic resource access
+
+**What You Can Test:**
+
+1. **Web UI Features:**
+   - Dashboard with resource statistics
+   - Resource management (Linux, Windows, Docker, Database, Router, Switch)
+   - User and role management (super admin only)
+   - Audit log viewer
+   - SSH key management
+
+2. **SSH Jump Server:**
+   ```bash
+   # Generate SSH key (if you don't have one)
+   ssh-keygen -t rsa -b 4096 -f ~/.ssh/roma_demo_key
+   
+   # Upload public key via Web UI:
+   # Settings -> SSH Keys -> Upload Public Key
+   
+   # Connect to ROMA
+   ssh super@localhost -p 2200 -i ~/.ssh/roma_demo_key
+   
+   # Try ROMA commands
+   roma> ls              # List resources
+   roma> use linux       # Switch to Linux context
+   roma> ls              # List Linux resources
+   roma> whoami          # Show user info
+   roma> help            # Show all commands
+   ```
+
+3. **API Testing:**
+   ```bash
+   # Get API key from Web UI: Settings -> API Keys
+   
+   # Test API
+   curl -H "apikey: your-api-key" http://localhost:6999/api/v1/resources
+   ```
+
+4. **MCP Bridge (AI Integration):**
+   ```bash
+   # Build MCP bridge
+   cd mcp/bridge
+   go build -o roma-mcp-bridge
+   
+   # Configure for local demo
+   export ROMA_SSH_HOST="localhost"
+   export ROMA_SSH_PORT="2200"
+   export ROMA_SSH_USER="super"
+   export ROMA_SSH_KEY="$(cat ~/.ssh/roma_demo_key)"
+   
+   # Test
+   ./roma-mcp-bridge
+   ```
+
+**Sample Resources (Pre-configured in Demo):**
+
+The demo environment includes sample resources for testing:
+- 📦 Linux servers (web-01, db-01)
+- 🐳 Docker containers
+- 🗄️ MySQL database (demo-db)
+- 🛣️ Network devices (router-01, switch-01)
+
+**Clean Up Demo:**
+```bash
+# Stop and remove containers
+docker compose -f quickstart.yaml down
+
+# Remove volumes (optional, removes all data)
+docker compose -f quickstart.yaml down -v
+```
+
+---
+
+### Advanced: Docker with MySQL/PostgreSQL
+
+For production deployment with external database:
+
+```bash
+# Clone repository
+git clone https://github.com/binrchq/roma.git
+cd roma/deployment
+
+# Option 1: MySQL
+docker compose -f quickstart.mysql.yaml up -d
+
+# Option 2: PostgreSQL
+docker compose -f quickstart.pgsql.yaml up -d
+```
+
+See [deployment/](deployment/) directory for more configuration options.
+
+---
+
 ## 📚 Documentation
 
 - **[MCP Bridge Guide](mcp/bridge/README.md)** - Complete MCP Bridge documentation
 - **[MCP Bridge Architecture](mcp/bridge/ARCHITECTURE.md)** - Architecture details
 - **[Resource Support](docs/RESOURCE_SUPPORT.md)** - Detailed resource type support
-- **[Web Frontend](web/frontend/README.md)** - Web UI documentation
-- **[VSCode Extension](web/vscode-extension/README.md)** - IDE integration
+- **[API Documentation](docs/API.md)** - RESTful API reference
+
+---
+
+## 🔗 Related Projects
+
+ROMA ecosystem includes multiple projects for different use cases:
+
+### 🌐 [roma-web](https://github.com/binrchq/roma-web)
+Modern React-based Web UI for ROMA management.
+
+**Features:**
+- 📊 Resource dashboard with real-time statistics
+- 🖥️ Web-based SSH terminal
+- 👥 User and role management
+- 🔑 SSH key management
+- 📝 Audit log viewer
+- 🎨 Modern, responsive design
+
+**Quick Start:**
+```bash
+docker pull binrc/roma-web:latest
+# or visit: https://github.com/binrchq/roma-web
+```
+
+---
+
+### 🤖 [roma-mcp](https://github.com/binrchq/roma-mcp)
+Standalone MCP server for AI integration (alternative to MCP Bridge).
+
+**Features:**
+- 🔌 Full MCP protocol support
+- 🚀 Independent deployment
+- 🛠️ 20+ AI tools for infrastructure management
+- 💡 Works with Claude Desktop, Cursor, and other MCP clients
+
+**When to Use:**
+- Need standalone MCP server
+- Want to run MCP server on a different machine
+- Require custom MCP configurations
+
+**Quick Start:**
+```bash
+git clone https://github.com/binrchq/roma-mcp.git
+cd roma-mcp
+go build -o roma-mcp-server
+./roma-mcp-server
+```
+### 📊 Project Comparison
+
+| Project | Purpose | Technology | Deployment |
+|---------|---------|------------|------------|
+| **roma** | Core jump server | Go | Binary/Docker |
+| **roma-web** | Web management UI | React | Docker/Nginx |
+| **roma-mcp** | Standalone MCP server | Go | Binary/Docker |
 
 ---
 
