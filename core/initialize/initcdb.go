@@ -96,13 +96,31 @@ func initMySQL() (*gorm.DB, error) {
 func initPostgreSQL() (*gorm.DB, error) {
 	cdbUrl := global.CONFIG.Database.CdbUrl
 
+	// 验证连接字符串是否完整
+	if cdbUrl == "" {
+		return nil, fmt.Errorf("PostgreSQL connection string is empty")
+	}
+
 	// 构建 DSN，如果没有 sslmode 则默认添加 sslmode=disable
 	dsn := buildPostgresDSN(cdbUrl)
+
+	// 验证 DSN 是否包含必要的参数
+	if !isValidPostgresDSN(dsn) {
+		log.Error().Str("dsn", maskPassword(dsn)).Msg("PostgreSQL DSN is incomplete, missing required parameters (host, port, user, password)")
+		return nil, fmt.Errorf("PostgreSQL connection string is incomplete, missing required parameters")
+	}
+
+	log.Info().Str("dsn", maskPassword(dsn)).Msg("Attempting to connect to PostgreSQL database")
 
 	// 先尝试直接连接到目标数据库
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+
+	// 如果连接失败，记录详细错误信息
+	if err != nil {
+		log.Error().Err(err).Str("dsn", maskPassword(dsn)).Msg("Failed to connect to PostgreSQL database")
+	}
 
 	// 如果连接失败且指定了数据库名，尝试创建数据库
 	if err != nil {
@@ -166,8 +184,19 @@ func buildPostgresDSN(cdbUrl string) string {
 	}
 
 	// 添加 sslmode=disable
-	if strings.Contains(cdbUrl, "postgres://") || strings.Contains(cdbUrl, "postgresql://") {
-		// URL 格式
+	if strings.HasPrefix(cdbUrl, "postgres://") || strings.HasPrefix(cdbUrl, "postgresql://") {
+		// URL 格式：确保 URL 编码正确
+		parsedURL, err := url.Parse(cdbUrl)
+		if err == nil {
+			// 解析成功，添加 sslmode 参数
+			if parsedURL.RawQuery != "" {
+				parsedURL.RawQuery += "&sslmode=disable"
+			} else {
+				parsedURL.RawQuery = "sslmode=disable"
+			}
+			return parsedURL.String()
+		}
+		// 解析失败，使用简单方式添加
 		if strings.Contains(cdbUrl, "?") {
 			return cdbUrl + "&sslmode=disable"
 		}
@@ -253,6 +282,50 @@ func extractDatabaseName(cdbUrl string) string {
 		}
 	}
 	return ""
+}
+
+// isValidPostgresDSN 验证 PostgreSQL DSN 是否包含必要的参数
+func isValidPostgresDSN(dsn string) bool {
+	// URL 格式检查
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		parsedURL, err := url.Parse(dsn)
+		if err != nil {
+			return false
+		}
+		// 检查是否有 host 和 user
+		if parsedURL.Hostname() == "" || parsedURL.User == nil || parsedURL.User.Username() == "" {
+			return false
+		}
+		return true
+	}
+
+	// 连接字符串格式检查
+	hasHost := strings.Contains(dsn, "host=")
+	hasUser := strings.Contains(dsn, "user=")
+
+	// host 和 user 是必需的，password 可能为空（如果使用 trust 认证）
+	return hasHost && hasUser
+}
+
+// maskPassword 隐藏连接字符串中的密码
+func maskPassword(dsn string) string {
+	// URL 格式
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		parsedURL, err := url.Parse(dsn)
+		if err != nil {
+			return "***"
+		}
+		if parsedURL.User != nil {
+			username := parsedURL.User.Username()
+			parsedURL.User = url.User(username)
+			return parsedURL.String()
+		}
+		return dsn
+	}
+
+	// 连接字符串格式
+	re := regexp.MustCompile(`password=([^\s]+)`)
+	return re.ReplaceAllString(dsn, "password=***")
 }
 
 func getTableName(model interface{}) string {

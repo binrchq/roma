@@ -133,6 +133,8 @@ spec:
                   name: roma-secrets
                   key: ROMA_DATABASE_CDB_URL
                   optional: true
+            - name: ROMA_API_CORS_ALLOW_ORIGINS
+              value: "https://roma.c.binrc.com,https://roma.meshwise.cn"
           volumeMounts:
             - name: roma-data
               mountPath: /app/data

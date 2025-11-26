@@ -18,9 +18,10 @@ func NewConfig() *Config {
 }
 
 type ApiConfig struct {
-	GinMode string `mapstructure:"gin_mode"`
-	Host    string `mapstructure:"host"`
-	Port    string `mapstructure:"port"`
+	GinMode        string `mapstructure:"gin_mode"`
+	Host           string `mapstructure:"host"`
+	Port           string `mapstructure:"port"`
+	CorsAllowOrigins string `mapstructure:"cors_allow_origins"` // CORS 允许的域名列表，多个用逗号分隔
 }
 
 type CommonConfig struct {

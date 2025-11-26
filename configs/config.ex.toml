@@ -5,6 +5,7 @@ title = 'Roma Configs File'
 gin_mode = 'release'
 host = '0.0.0.0'
 port = '6999'
+cors_allow_origins = 'https://roma.binrc.com,https://roma-demo.binrc.com'  # CORS 允许的域名列表，多个用逗号分隔，留空则允许所有来源
 
 [common]
 language = 'zh'

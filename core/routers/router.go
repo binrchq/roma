@@ -10,6 +10,7 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 	// 使用中间件
 	r.Use(gin.Recovery()) // 恢复从任何恐慌中恢复，如果有的话
+	r.Use(middleware.CORSMiddleware()) // CORS 支持，前后端分离时需要
 
 	// 健康检查端点 - 不需要认证，用于 Docker/K8s 健康检查
 	systemController := api.NewSystemController()

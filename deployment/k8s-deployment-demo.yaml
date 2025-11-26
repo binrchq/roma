@@ -97,6 +97,8 @@ spec:
               value: "super,system,ops,ordinary,trial"
             - name: ROMA_DATABASE_CDB_URL
               value: "/app/data/demo.db"
+            - name: ROMA_API_CORS_ALLOW_ORIGINS
+              value: "https://roma-demo.binrc.com"
           volumeMounts:
             - name: roma-data
               mountPath: /app/data

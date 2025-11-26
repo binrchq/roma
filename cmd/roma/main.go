@@ -139,6 +139,7 @@ func bindEnvVars() {
 	viper.BindEnv("api.gin_mode", "ROMA_API_GIN_MODE")
 	viper.BindEnv("api.host", "ROMA_API_HOST")
 	viper.BindEnv("api.port", "ROMA_API_PORT")
+	viper.BindEnv("api.cors_allow_origins", "ROMA_API_CORS_ALLOW_ORIGINS")
 
 	// Common 配置
 	viper.BindEnv("common.history_tmp_dir", "ROMA_COMMON_HISTORY_TMP_DIR")
