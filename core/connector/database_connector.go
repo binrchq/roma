@@ -9,6 +9,7 @@ import (
 
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/utils"
+	"binrc.com/roma/core/utils/logger"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -25,6 +26,42 @@ func NewDatabaseConnector(config *model.DatabaseConfig) *DatabaseConnector {
 	return &DatabaseConnector{
 		Config: config,
 	}
+}
+
+// resolveHostForConnection 用途: 解析数据库主机地址（支持域名和IP）
+// 输入: 无（使用配置中的地址）
+// 输出: string - 用于连接的主机地址
+// 必要性: 允许资源配置中填写域名，但连接时需要解析为IP
+func (d *DatabaseConnector) resolveHostForConnection() string {
+	candidates := []string{d.Config.IPv4Pub, d.Config.IPv4Priv, d.Config.IPv6}
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if resolved, err := utils.ResolveHostName(candidate); err != nil {
+			logger.Logger.Warning(fmt.Sprintf("Resolve host failed for %s: %v", candidate, err))
+			return candidate
+		} else if resolved != "" {
+			if resolved != candidate {
+				logger.Logger.Debug(fmt.Sprintf("Resolve host %s -> %s", candidate, resolved))
+			}
+			return resolved
+		}
+	}
+	return ""
+}
+
+// displayHost 返回用于展示的原始主机值
+func (d *DatabaseConnector) displayHost() string {
+	candidates := []string{d.Config.IPv4Pub, d.Config.IPv4Priv, d.Config.IPv6}
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
 }
 
 // Connect 连接数据库
@@ -47,13 +84,9 @@ func (d *DatabaseConnector) Connect() (interface{}, error) {
 
 // MySQL 连接
 func (d *DatabaseConnector) connectMySQL() (*sql.DB, error) {
-	// 优先使用公网IP，其次是内网IP
-	host := d.Config.IPv4Pub
+	host := d.resolveHostForConnection()
 	if host == "" {
-		host = d.Config.IPv4Priv
-	}
-	if host == "" {
-		host = d.Config.IPv6
+		return nil, fmt.Errorf("缺少数据库连接地址")
 	}
 
 	// 解密密码
@@ -91,12 +124,9 @@ func (d *DatabaseConnector) connectMySQL() (*sql.DB, error) {
 
 // PostgreSQL 连接
 func (d *DatabaseConnector) connectPostgreSQL() (*sql.DB, error) {
-	host := d.Config.IPv4Pub
+	host := d.resolveHostForConnection()
 	if host == "" {
-		host = d.Config.IPv4Priv
-	}
-	if host == "" {
-		host = d.Config.IPv6
+		return nil, fmt.Errorf("缺少数据库连接地址")
 	}
 
 	// 解密密码
@@ -134,12 +164,9 @@ func (d *DatabaseConnector) connectPostgreSQL() (*sql.DB, error) {
 
 // MongoDB 连接
 func (d *DatabaseConnector) connectMongoDB() (*mongo.Client, error) {
-	host := d.Config.IPv4Pub
+	host := d.resolveHostForConnection()
 	if host == "" {
-		host = d.Config.IPv4Priv
-	}
-	if host == "" {
-		host = d.Config.IPv6
+		return nil, fmt.Errorf("缺少数据库连接地址")
 	}
 
 	// 解密密码
@@ -176,11 +203,9 @@ func (d *DatabaseConnector) connectMongoDB() (*mongo.Client, error) {
 
 // Redis 连接
 func (d *DatabaseConnector) connectRedis() (interface{}, error) {
-	// 这里需要 Redis 客户端库，如 github.com/go-redis/redis
-	// 简化实现，返回连接信息
-	host := d.Config.IPv4Pub
+	host := d.resolveHostForConnection()
 	if host == "" {
-		host = d.Config.IPv4Priv
+		return nil, fmt.Errorf("缺少数据库连接地址")
 	}
 
 	// 解密密码
@@ -262,13 +287,7 @@ func (d *DatabaseConnector) ExecuteQuery(query string) (interface{}, error) {
 
 // GetConnectionInfo 获取连接信息（用于显示）
 func (d *DatabaseConnector) GetConnectionInfo() map[string]interface{} {
-	host := d.Config.IPv4Pub
-	if host == "" {
-		host = d.Config.IPv4Priv
-	}
-	if host == "" {
-		host = d.Config.IPv6
-	}
+	host := d.displayHost()
 
 	var connectionString string
 	dbType := strings.ToLower(d.Config.DatabaseType)
@@ -298,5 +317,3 @@ func (d *DatabaseConnector) GetConnectionInfo() map[string]interface{} {
 		"connection_string": connectionString,
 	}
 }
-
-

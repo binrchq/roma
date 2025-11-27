@@ -3,6 +3,7 @@ package operation
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/global"
@@ -178,6 +179,10 @@ func (r *ResourceOperation) UpdateLinuxResource(resource *model.LinuxConfig) (*m
 		return nil, err
 	}
 
+	if strings.TrimSpace(resource.PrivateKey) == "" {
+		resource.PrivateKey = existingResource.PrivateKey
+	}
+
 	// Update the resource with the new data
 	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
 		return nil, err
@@ -226,6 +231,10 @@ func (r *ResourceOperation) UpdateDatabaseResource(resource *model.DatabaseConfi
 		return nil, err
 	}
 
+	if strings.TrimSpace(resource.PrivateKey) == "" {
+		resource.PrivateKey = existingResource.PrivateKey
+	}
+
 	// Update the resource with the new data
 	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
 		return nil, err
@@ -242,6 +251,10 @@ func (r *ResourceOperation) UpdateRouterResource(resource *model.RouterConfig) (
 			return nil, fmt.Errorf("router name not found: %w", err)
 		}
 		return nil, err
+	}
+
+	if strings.TrimSpace(resource.PrivateKey) == "" {
+		resource.PrivateKey = existingResource.PrivateKey
 	}
 
 	// Update the resource with the new data
@@ -289,6 +302,10 @@ func (r *ResourceOperation) UpdateDockerResource(resource *model.DockerConfig) (
 			return nil, fmt.Errorf("docker container name not found: %w", err)
 		}
 		return nil, err
+	}
+
+	if strings.TrimSpace(resource.PrivateKey) == "" {
+		resource.PrivateKey = existingResource.PrivateKey
 	}
 
 	// Update the resource with the new data

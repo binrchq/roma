@@ -67,6 +67,8 @@ func SetupRouter() *gin.Engine {
 		{
 			// 列出资源 - 需要 list 权限
 			resources.GET("", middleware.RequirePermission("resource", "list"), resourceController.GetAllResource)
+			// 数据库类型列表 - 需要 list 权限
+			resources.GET("/database-types", middleware.RequirePermission("resource", "list"), resourceController.GetDatabaseTypes)
 			// 添加资源 - 需要 add 权限（super/system 角色）
 			resources.POST("", middleware.RequirePermission("resource", "add"), resourceController.AddResource)
 			// 获取单个资源 - 需要 get 权限

@@ -14,20 +14,6 @@ import (
 	"github.com/loganchef/ssh"
 )
 
-// maskKey 掩码密钥，只显示头尾各20个字符
-func maskKey(key string) string {
-	if key == "" {
-		return ""
-	}
-	if len(key) <= 40 {
-		return key
-	}
-	// 显示前20个字符和后20个字符
-	prefix := key[:20]
-	suffix := key[len(key)-20:]
-	return prefix + "..." + suffix
-}
-
 type UserController struct {
 	// 可以添加其他依赖项
 }

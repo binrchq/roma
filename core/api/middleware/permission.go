@@ -273,10 +273,10 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 			return
 		}
 
-		// 检查是否是访问自己的信息（/me 路径）
+		// 检查是否是访问自己的信息（/me 或 /me/xxx 路径）
 		// 用户总是可以访问和更新自己的信息
 		path := c.Request.URL.Path
-		if strings.HasSuffix(path, "/me") {
+		if strings.HasSuffix(path, "/me") || strings.Contains(path, "/me/") {
 			// 访问自己的信息，直接允许
 			c.Set("user", user)
 			c.Next()

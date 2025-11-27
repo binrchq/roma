@@ -15,9 +15,9 @@ type DatabaseConfig struct {
 	DatabaseName string         `gorm:"type:varchar(255);column:database_name" json:"database_name"` // 数据库名称
 	DatabaseType string         `gorm:"type:varchar(255);column:database_type" json:"database_type"` // 数据库类型（例如，'MySQL'，'PostgreSQL'）
 	Port         int            `gorm:"type:integer;column:port" json:"port"`                        // 数据库连接端口号
-	IPv4Pub      string         `gorm:"type:varchar(15);column:ipv4_pub" json:"ipv4_pub"`            // 公网IPv4地址
-	IPv4Priv     string         `gorm:"type:varchar(15);column:ipv4_priv" json:"ipv4_priv"`          // 内网IPv4地址
-	IPv6         string         `gorm:"type:varchar(39);column:ipv6" json:"ipv6"`                    // IPv6地址
+	IPv4Pub      string         `gorm:"type:varchar(255);column:ipv4_pub" json:"ipv4_pub"`           // 公网IPv4地址或域名
+	IPv4Priv     string         `gorm:"type:varchar(255);column:ipv4_priv" json:"ipv4_priv"`         // 内网IPv4地址或域名
+	IPv6         string         `gorm:"type:varchar(255);column:ipv6" json:"ipv6"`                   // IPv6地址或域名
 	Password     string         `gorm:"type:varchar(255);column:password" json:"password"`           // 数据库认证密码
 	Username     string         `gorm:"type:varchar(255);column:username" json:"username"`           // 数据库认证用户名
 	PrivateKey   string         `gorm:"type:varchar(1024);column:private_key" json:"private_key"`    // 数据库认证私钥

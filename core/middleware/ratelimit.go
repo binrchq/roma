@@ -18,8 +18,8 @@ type RateLimiter struct {
 	maxConnectionsPerSecond int
 	// IP连接计数
 	ipConnections map[string]int
-	// IP最后连接时间
-	ipLastConnection map[string][]time.Time
+	// IP+接口的请求时间窗口
+	ipEndpointRequests map[string][]time.Time
 	// 互斥锁
 	mu sync.RWMutex
 	// 清理定时器
@@ -37,7 +37,7 @@ func InitRateLimiter(maxConnectionsPerIP, maxConnectionsPerSecond int) {
 		maxConnectionsPerIP:     maxConnectionsPerIP,
 		maxConnectionsPerSecond: maxConnectionsPerSecond,
 		ipConnections:           make(map[string]int),
-		ipLastConnection:        make(map[string][]time.Time),
+		ipEndpointRequests:      make(map[string][]time.Time),
 		cleanupTicker:           time.NewTicker(1 * time.Minute),
 	}
 
@@ -58,7 +58,7 @@ func (rl *RateLimiter) cleanup() {
 	// 清理1分钟前的连接记录
 	cutoff := now.Add(-1 * time.Minute)
 
-	for ip, times := range rl.ipLastConnection {
+	for key, times := range rl.ipEndpointRequests {
 		validTimes := []time.Time{}
 		for _, t := range times {
 			if t.After(cutoff) {
@@ -66,18 +66,18 @@ func (rl *RateLimiter) cleanup() {
 			}
 		}
 		if len(validTimes) == 0 {
-			delete(rl.ipLastConnection, ip)
+			delete(rl.ipEndpointRequests, key)
 		} else {
-			rl.ipLastConnection[ip] = validTimes
+			rl.ipEndpointRequests[key] = validTimes
 		}
 	}
 }
 
-// AllowConnection 检查是否允许新连接
-// 输入: ip - 客户端IP地址
-// 输出: bool - 是否允许连接；string - 拒绝原因（如果不允许）
-// 必要性: 实现连接数限制和连接速率限制
-func (rl *RateLimiter) AllowConnection(ip string) (bool, string) {
+// AllowRequest 检查是否允许新请求
+// 输入: ip - 客户端IP地址；endpoint - 请求对应的接口路径
+// 输出: bool - 是否允许；string - 拒绝原因（如果不允许）
+// 必要性: 实现单IP并发及单接口的速率限制
+func (rl *RateLimiter) AllowRequest(ip, endpoint string) (bool, string) {
 	if rl == nil {
 		return true, ""
 	}
@@ -91,9 +91,13 @@ func (rl *RateLimiter) AllowConnection(ip string) (bool, string) {
 		return false, fmt.Sprintf("too many connections from %s (max: %d)", ip, rl.maxConnectionsPerIP)
 	}
 
-	// 检查连接速率
+	// 检查连接速率（按 endpoint 维度）
 	now := time.Now()
-	lastConnections := rl.ipLastConnection[ip]
+	if endpoint == "" {
+		endpoint = "/"
+	}
+	endpointKey := fmt.Sprintf("%s|%s", ip, endpoint)
+	lastConnections := rl.ipEndpointRequests[endpointKey]
 	// 清理1秒前的连接记录
 	recentConnections := []time.Time{}
 	for _, t := range lastConnections {
@@ -109,7 +113,7 @@ func (rl *RateLimiter) AllowConnection(ip string) (bool, string) {
 	// 允许连接，更新计数
 	rl.ipConnections[ip] = currentConnections + 1
 	recentConnections = append(recentConnections, now)
-	rl.ipLastConnection[ip] = recentConnections
+	rl.ipEndpointRequests[endpointKey] = recentConnections
 
 	return true, ""
 }
@@ -149,7 +153,12 @@ func RateLimitMiddleware() gin.HandlerFunc {
 			ip = c.GetHeader("X-Real-IP")
 		}
 
-		allowed, reason := globalRateLimiter.AllowConnection(ip)
+		endpoint := c.FullPath()
+		if endpoint == "" {
+			endpoint = c.Request.URL.Path
+		}
+
+		allowed, reason := globalRateLimiter.AllowRequest(ip, endpoint)
 		if !allowed {
 			utilG := utils.Gin{C: c}
 			utilG.Response(http.StatusTooManyRequests, utils.ERROR, reason)

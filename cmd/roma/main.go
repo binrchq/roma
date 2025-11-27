@@ -8,6 +8,8 @@ import (
 	"strings"
 	"syscall"
 
+	"time"
+
 	"binrc.com/roma/configs"
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/global"
@@ -19,7 +21,6 @@ import (
 	"binrc.com/roma/core/services"
 	"binrc.com/roma/core/sshd"
 	"binrc.com/roma/core/utils/logger"
-	"time"
 
 	"github.com/fatih/color"
 	"github.com/gin-contrib/pprof"
@@ -199,7 +200,8 @@ func bindEnvVars() {
 func initSecurity() {
 	// 初始化API速率限制器
 	// 参数：每个IP最大并发连接数，每秒最大连接数
-	middleware.InitRateLimiter(10, 3) // 每个IP最多10个并发连接，每秒最多3个新连接
+	// 调整为更宽松的阈值，减少普通操作被误判为 DDoS 的可能性
+	middleware.InitRateLimiter(30, 10) // 每个IP最多30个并发连接，每秒最多10个新连接
 
 	// 初始化IP黑名单
 	middleware.InitIPBlacklist()
@@ -207,20 +209,20 @@ func initSecurity() {
 	// 初始化API认证失败追踪器
 	// 参数：最大失败次数，封禁时长，失败计数窗口，是否启用指数退避
 	middleware.InitAuthFailureTracker(
-		5,                      // 5次失败后封禁
-		15*time.Minute,         // 封禁15分钟
-		5*time.Minute,          // 5分钟内的失败计数
-		true,                   // 启用指数退避
+		5,              // 5次失败后封禁
+		15*time.Minute, // 封禁15分钟
+		5*time.Minute,  // 5分钟内的失败计数
+		true,           // 启用指数退避
 	)
 
 	// 初始化SSH安全管理器
 	// 参数：每个IP最大并发连接数，每秒最大连接数，最大认证失败次数，封禁时长，失败计数窗口
 	sshd.InitSSHSecurity(
-		5,                      // 每个IP最多5个并发SSH连接
-		2,                      // 每秒最多2个新SSH连接
-		3,                      // 3次认证失败后封禁
-		30*time.Minute,         // 封禁30分钟
-		10*time.Minute,         // 10分钟内的失败计数
+		5,              // 每个IP最多5个并发SSH连接
+		2,              // 每秒最多2个新SSH连接
+		3,              // 3次认证失败后封禁
+		30*time.Minute, // 封禁30分钟
+		10*time.Minute, // 10分钟内的失败计数
 	)
 }
 
@@ -285,7 +287,7 @@ func StartSshdService() {
 		services.SessionHandler(&sess)
 	})
 	ssh.Handle(secureHandler)
-	
+
 	log.Printf("starting ssh server on port %s...\n", global.CONFIG.Common.Port)
 	hostKey, err := op.GetLatestHostKey()
 	if err != nil {

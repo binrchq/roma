@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils"
 	"binrc.com/roma/core/utils/logger"
 	"github.com/fatih/color"
 	"github.com/loganchef/ssh"
@@ -211,7 +212,15 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 		HostKeyCallback: gossh.HostKeyCallback(func(hostname string, remote net.Addr, key gossh.PublicKey) error { return nil }),
 	}
 
-	addr := fmt.Sprintf("%s:%d", ip, port)
+	dialHost := strings.TrimSpace(ip)
+	if resolved, err := utils.ResolveHostName(dialHost); err != nil {
+		logger.Logger.Warning(fmt.Sprintf("Resolve host failed for %s: %v", dialHost, err))
+	} else if resolved != "" && resolved != dialHost {
+		logger.Logger.Debug(fmt.Sprintf("Resolve host %s -> %s", dialHost, resolved))
+		dialHost = resolved
+	}
+
+	addr := fmt.Sprintf("%s:%d", dialHost, port)
 
 	// 使用带超时的 TCP 连接（10秒超时）
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)

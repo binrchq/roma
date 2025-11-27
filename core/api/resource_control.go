@@ -620,11 +620,11 @@ func (r *ResourceControl) GetAllResource(c *gin.Context) {
 		roles := roleMap[key]
 		space := spaceMap[key]
 
-		// 将资源转换为 map，添加角色和空间信息
-		resMap := make(map[string]interface{})
-		// 使用 JSON 序列化/反序列化来转换资源对象
-		resJSON, _ := json.Marshal(res)
-		json.Unmarshal(resJSON, &resMap)
+		// 将资源转换为 map，添加角色和空间信息（包含敏感字段掩码）
+		resMap := convertResourceToMap(res)
+		if resMap == nil {
+			continue
+		}
 
 		if len(roles) > 0 {
 			rolesJSON, _ := json.Marshal(roles)
@@ -771,9 +771,14 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 		space = resourceSpace.Space
 	}
 
+	resourceMap := convertResourceToMap(resource)
+	if resourceMap == nil {
+		utilG.Response(utils.ERROR, utils.ERROR, "Failed to serialize resource")
+		return
+	}
 	// 构建响应，包含资源信息、角色信息和空间信息
 	response := map[string]interface{}{
-		"resource": resource,
+		"resource": resourceMap,
 	}
 	if len(resourceRoleList) > 0 {
 		response["roles"] = resourceRoleList
@@ -785,4 +790,73 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 	}
 
 	utilG.Response(utils.SUCCESS, utils.SUCCESS, response)
+}
+
+// GetDatabaseTypes 用途: 返回可选的数据库类型列表
+// 输入: c - Gin 上下文
+// 输出: 无（统一通过 utilG 返回 JSON）
+// 必要性: 前端需要展示数据库类型下拉列表，避免手写数据库类型带来错误
+func (r *ResourceControl) GetDatabaseTypes(c *gin.Context) {
+	utilG := utils.Gin{C: c}
+	utilG.Response(utils.SUCCESS, utils.SUCCESS, constants.DefaultDatabaseTypes)
+}
+
+// convertResourceToMap 用途: 将资源结构体转为 map，便于扩展额外字段
+// 输入: res - 资源模型
+// 输出: map[string]interface{} - 转换后的数据
+// 必要性: 需要在响应中追加敏感字段掩码信息，直接返回结构体无法附加自定义字段
+func convertResourceToMap(res model.Resource) map[string]interface{} {
+	if res == nil {
+		return nil
+	}
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		return nil
+	}
+	resMap := make(map[string]interface{})
+	if err := json.Unmarshal(resJSON, &resMap); err != nil {
+		return nil
+	}
+	maskResourceMap(resMap)
+	return resMap
+}
+
+// maskResourceMap 用途: 对资源中的敏感字段做掩码处理
+// 输入: resMap - 资源数据 map
+// 输出: 无（原地修改）
+// 必要性: 防止私钥明文在前端展示或被复制
+func maskResourceMap(resMap map[string]interface{}) {
+	if resMap == nil {
+		return
+	}
+	if key, ok := resMap["private_key"].(string); ok && strings.TrimSpace(key) != "" {
+		resMap["private_key_masked"] = maskKey(key)
+		resMap["has_private_key"] = true
+		resMap["private_key"] = ""
+	} else {
+		resMap["private_key_masked"] = ""
+		resMap["has_private_key"] = false
+	}
+}
+
+// maskKey 用途: 对密钥做部分可见的掩码展示
+// 输入: key - 原始密钥字符串
+// 输出: string - 掩码后的密钥
+// 必要性: 管理员可确认密钥是否存在，但无法直接复制完整内容
+func maskKey(key string) string {
+	cleanKey := strings.TrimSpace(key)
+	if cleanKey == "" {
+		return ""
+	}
+	if len(cleanKey) <= 12 {
+		return "******"
+	}
+
+	keep := 20
+	if len(cleanKey)/2 < keep {
+		keep = len(cleanKey) / 2
+	}
+	head := cleanKey[:keep]
+	tail := cleanKey[len(cleanKey)-keep:]
+	return fmt.Sprintf("%s...%s", head, tail)
 }
