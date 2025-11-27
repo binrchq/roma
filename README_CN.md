@@ -378,7 +378,7 @@ ROMA由以下组织支持开发：
     <img src="https://binrc.com/img/logo_lite.png" alt="Binrc" height="40" />
   </a>
   <a href="https://ai2o.binrc.com" target="_blank" style="display: inline-block; vertical-align: middle;">
-    <img src="docs/AI2O_logo_white.png" alt="AI2O" height="80"  style="image-rendering: auto;"/>
+    <img src="docs/AI2O_logo_long.png" alt="AI2O" height="40"  style="image-rendering: auto;"/>
   </a>
 </p>
 
