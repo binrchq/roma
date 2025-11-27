@@ -4,278 +4,219 @@
   <img src="./readme.res/logo.png" alt="ROMA Logo" width="100" />
 </div>
 
-![Static Badge](https://img.shields.io/badge/License-AGPL_v3-blue)
-![Static Badge](https://img.shields.io/badge/lightweight-green)
-![Static Badge](https://img.shields.io/badge/AI-Powered-orange)
-![Static Badge](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
-![Static Badge](https://img.shields.io/badge/Demo-Online-success)
+![License](https://img.shields.io/badge/License-AGPL_v3-blue)
+![Lightweight](https://img.shields.io/badge/lightweight-green)
+![AI-Powered](https://img.shields.io/badge/AI-Powered-orange)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 
 **ROMA** is an AI-powered, ultra-lightweight jump server (bastion host) built with Go. It provides secure and efficient remote access solutions with native AI integration through Model Context Protocol (MCP). 
 
-**Related Projects:** [Web UI](https://github.com/binrchq/roma-web) • [MCP Server](https://github.com/binrchq/roma-mcp) • [VSCode Extension](https://github.com/binrchq/roma-vsc-ext) • [Official Site](https://roma.binrc.com)
+**Live Demo:** https://roma-demo.binrc.com (demo/demo123456)
 
-Language: [中文](./README_CN.md)
+Language: English • [中文](./README_CN.md)
 
 ---
-## 🚀 Try ROMA Now!
 
-### Quick Start with Docker (< 2 minutes)
+## Related Projects
+
+| Project | Description | Repository |
+|---------|-------------|------------|
+| **roma** | Core jump server service (Go) | This project |
+| **roma-web** | Web management UI (React) | [github.com/binrchq/roma-web](https://github.com/binrchq/roma-web) |
+| **roma-mcp** | Standalone MCP service | [github.com/binrchq/roma-mcp](https://github.com/binrchq/roma-mcp) |
+| **roma-vsc-ext** | VSCode extension | [github.com/binrchq/roma-vsc-ext](https://github.com/binrchq/roma-vsc-ext) |
+
+**Official Website:** https://roma.binrc.com
+
+---
+
+<div align="left">
+  <img src="./readme.res/face.png" alt="ROMA Interface" width="800" />
+</div>
+
+## Key Features
+
+- **Jump Server** - Unified remote access gateway with centralized control
+- **AI-Powered** - Native MCP support for AI-driven infrastructure management
+- **Space Isolation** - Multi-tenant level resource isolation
+- **Security Hardening** - SSH key authentication, API key authorization, multi-layer protection
+- **Lightweight** - Single binary, minimal dependencies
+- **Multi-Resource Support** - Linux/Windows/Docker/Database/Router/Switch
+- **Modern Web UI** - React-based management interface
+- **Adaptive Security** - Rate limiting, IP blacklist, auth-failure guardrails
+- **MCP Bridge** - Lightweight AI integration bridge
+
+---
+
+## Quick Deployment
+
+### Docker Deployment (Recommended)
 
 ```bash
-# 1. Download quickstart file
+# 1. Download quickstart configuration
 curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
 
-# 2. Start ROMA
+# 2. Start services
 docker compose -f quickstart.yaml up -d
 
 # 3. Access Web UI
 open http://localhost:7000
 ```
 
-**Demo Credentials:**
+**Default Credentials:**
 - Username: `demo`
 - Password: `demo123456`
 
-### Online Demo (No Installation)
+**Service Ports:**
+- Web UI: `7000`
+- API: `6999`
+- SSH: `2200`
 
-🌐 **https://roma-demo.binrc.com**
-- Credentials is ***demo/demo123456***
+### Binary Deployment
+
+```bash
+# 1. Clone repository
+git clone https://github.com/binrchq/roma.git
+cd roma
+
+# 2. Build
+go build -o roma cmd/roma/main.go
+
+# 3. Configure (refer to configs/config.ex.toml)
+cp configs/config.ex.toml configs/config.toml
+vim configs/config.toml
+
+# 4. Start
+./roma -c configs/config.toml
+```
+
+### Production Deployment
+
+Support for MySQL/PostgreSQL databases:
+
+```bash
+# MySQL
+docker compose -f deployment/quickstart.mysql.yaml up -d
+
+# PostgreSQL
+docker compose -f deployment/quickstart.pgsql.yaml up -d
+```
+
+**Deployment Guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ---
 
-## 🎯 What is ROMA?
+## Usage
 
-ROMA is a **jump server (bastion host)** that acts as a secure gateway to access your infrastructure resources. Instead of directly connecting to servers, databases, and network devices, you connect to ROMA first, and ROMA manages all the connections, credentials, and access control.
+### SSH Command Line
 
-<div align="left">
-  <img src="./readme.res/face.png" alt="ROMA face"/>
-</div>
+Connect to ROMA jump server and use kubectl-style commands to manage resources:
 
-### Key Features
-
-- 🚀 **Jump Server** - Secure gateway for remote access
-- 🤖 **AI-Powered** - Native MCP support for AI-driven operations
-- 🧩 **Space Isolation** - Resources grouped by spaces for tenant-level isolation
-- 🔐 **Secure** - SSH key authentication, API key authorization
-- 📦 **Lightweight** - Single binary, minimal dependencies
-- 🌐 **Multi-Resource** - Support 6 types of resources
-- 💻 **Web UI** - Modern React-based management interface
-- 🛡️ **Adaptive Security** - Rate limiting, IP blacklist, auth-failure guardrails
-- 🔌 **MCP Bridge** - Lightweight MCP bridge for AI integration
-
----
-
-## 🏗️ Jump Server Architecture
-
-```
-┌─────────────┐
-│   User      │
-│  (SSH/API)  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────┐
-│      ROMA Jump Server           │
-│  ┌──────────────────────────┐   │
-│  │  SSH Service (Port 2200) │   │
-│  │  API Service (Port 6999) │   │
-│  │  MCP Bridge (Optional)   │   │
-│  └──────────────────────────┘   │
-│                                  │
-│  • Authentication & Authorization│
-│  • Credential Management         │
-│  • Audit Logging                  │
-│  • Resource Registry              │
-└──────┬───────────────────────────┘
-       │
-       ├──► Linux Servers (SSH)
-       ├──► Windows Servers (PowerShell)
-       ├──► Docker Containers
-       ├──► Databases (MySQL/PostgreSQL/Redis/MongoDB)
-       ├──► Routers (Network Devices)
-       └──► Switches (Network Devices)
-```
-
-### Why Use a Jump Server?
-
-✅ **Security** - Centralized access control, no direct exposure of internal resources  
-✅ **Audit** - All access is logged and traceable  
-✅ **Credential Management** - Centralized credential storage, no need to distribute keys  
-✅ **Access Control** - Role-based permissions, fine-grained access control  
-✅ **Simplified Management** - One entry point to manage all resources  
-
----
-
-## 📦 Supported Resource Types
-
-ROMA supports **6 types of resources**, each with specialized connection and execution capabilities:
-
-### 1. 🐧 Linux Servers
-
-- **Connection**: SSH
-- **Execution**: Shell commands (bash, sh, etc.)
-- **Features**:
-  - Interactive SSH terminal
-  - Non-interactive command execution
-  - File transfer (SCP/SFTP)
-  - System monitoring commands
-
-**Example Usage:**
 ```bash
-# Interactive connection
-ssh user@roma-jump-server -p 2200
-> ln -t linux web-server-01
-> df -h
-> exit
+# Connect to jump server
+ssh demo@localhost -p 2200
 
-# Non-interactive command execution
-ssh user@roma-jump-server -p 2200 "ln -t linux web-server-01 -- 'df -h'"
+# List resources (similar to kubectl get)
+roma> ls                    # List all resources of current type
+roma> ls linux              # List all Linux servers
+roma> ls database           # List all databases
+
+# Switch context (similar to kubectl use-context)
+roma> use linux             # Switch to Linux context
+roma> use database          # Switch to database context
+
+# Login to resource (ln = login)
+roma> ln web-server-01                          # Interactive login
+roma> ln -t linux web-01 -- 'df -h'            # Execute single command
+roma> ln -t database mysql-prod -- 'SHOW databases;'  # Database query
+
+# User information
+roma> whoami                # Show current user and permissions
+
+# Help
+roma> help                  # Show all available commands
 ```
 
-### 2. 🪟 Windows Servers
+### File Transfer (SCP)
 
-- **Connection**: PowerShell Remoting (WinRM)
-- **Execution**: PowerShell commands
-- **Features**:
-  - Remote PowerShell execution
-  - Windows service management
-  - Event log queries
-  - Registry operations
+ROMA supports standard SCP protocol for file transfer with a special path format through the jump server:
 
-**Example Usage:**
+**Path Format:** `user@jumpserver:user@hostname:/remote/path`
+
+**Upload file to server:**
+
 ```bash
-ssh user@roma-jump-server -p 2200 "ln -t windows win-server-01 -- 'Get-Service | Where-Object {$_.Status -eq \"Running\"}'"
+# Basic usage
+scp -P 2200 /local/file.txt user@roma-server:user@web-server-01:/tmp/
+
+# Using SSH key
+scp -P 2200 -i ~/.ssh/roma_key /local/config.json user@roma-server:user@web-server-01:/etc/app/
+
+# Example: Upload log file
+scp -P 2200 -i ~/.ssh/id_rsa /var/log/app.log demo@localhost:demo@web-01:/tmp/app.log
 ```
 
-### 3. 🐳 Docker Containers
+**Download file from server:**
 
-- **Connection**: SSH to host + Docker CLI
-- **Execution**: Docker commands
-- **Features**:
-  - Container lifecycle management (start/stop/restart)
-  - Container logs viewing
-  - Exec into containers
-  - Image management
-
-**Example Usage:**
 ```bash
-ssh user@roma-jump-server -p 2200 "ln -t docker container-01 -- 'docker ps'"
-ssh user@roma-jump-server -p 2200 "ln -t docker container-01 -- 'docker logs -f app'"
+# Basic usage
+scp -P 2200 user@roma-server:user@web-server-01:/tmp/file.txt /local/path/
+
+# Download configuration file
+scp -P 2200 -i ~/.ssh/roma_key user@roma-server:user@db-01:/etc/mysql/my.cnf ./backup/
+
+# Example: Download database backup
+scp -P 2200 -i ~/.ssh/id_rsa demo@localhost:demo@db-01:/backup/db.sql.gz ./
 ```
 
-### 4. 🗄️ Databases
+**Supported Resource Types:**
+- Linux servers
+- Windows servers (requires OpenSSH Server)
+- Directory transfer not supported (compress first)
 
-- **Connection**: Native database protocols
-- **Execution**: SQL queries
-- **Supported Databases**:
-  - MySQL / MariaDB
-  - PostgreSQL
-  - Redis
-  - MongoDB
-  - Microsoft SQL Server
-  - ClickHouse
-  - Elasticsearch
+**Path Components:**
+- `user@jumpserver` - ROMA jump server user and address
+- `user@hostname` - Target server user and hostname (must be registered in ROMA)
+- `/remote/path` - File path on target server
 
-**Features**:
-  - Interactive database CLI
-  - Non-interactive SQL query execution
-  - Multiple statement support (semicolon-separated)
-  - Formatted query results
+**File Transfer via MCP:**
 
-**Example Usage:**
+AI assistants can use built-in file transfer tools:
+
+Examples:
+```
+"Upload config.json to web-server-01 /etc/app/ directory"
+"Download /backup/db.sql.gz from db-01 to local"
+```
+
+MCP Tools:
+- `copy_file_to_resource` - Upload file
+- `copy_file_from_resource` - Download file
+
+### MCP Integration (AI Assistant)
+
+ROMA provides lightweight MCP Bridge for AI assistants to directly manage infrastructure:
+
+**1. Build MCP Bridge:**
+
 ```bash
-# Interactive mode
-ssh user@roma-jump-server -p 2200
-> ln -t database links-mysql
-mysql [links]> SHOW databases;
-mysql [links]> SELECT * FROM users LIMIT 10;
-mysql [links]> exit
-
-# Non-interactive mode
-ssh user@roma-jump-server -p 2200 "ln -t database links-mysql -- 'SHOW databases;'"
-ssh user@roma-jump-server -p 2200 "ln -t database links-mysql -- 'SHOW databases;SHOW tables;'"
-```
-
-### 5. 🛣️ Routers
-
-- **Connection**: SSH (Cisco, Huawei, etc.)
-- **Execution**: Router CLI commands
-- **Features**:
-  - Interface configuration
-  - Routing table management
-  - Network status queries
-  - Configuration backup/restore
-
-**Example Usage:**
-```bash
-ssh user@roma-jump-server -p 2200 "ln -t router core-router-01 -- 'show ip route'"
-ssh user@roma-jump-server -p 2200 "ln -t router core-router-01 -- 'show interfaces'"
-```
-
-### 6. 🔌 Switches
-
-- **Connection**: SSH (Cisco, Huawei, etc.)
-- **Execution**: Switch CLI commands
-- **Features**:
-  - Port management
-  - VLAN configuration
-  - MAC address table queries
-  - Port status monitoring
-
-**Example Usage:**
-```bash
-ssh user@roma-jump-server -p 2200 "ln -t switch access-switch-01 -- 'show vlan'"
-ssh user@roma-jump-server -p 2200 "ln -t switch access-switch-01 -- 'show mac address-table'"
-```
-
----
-
-## 🤖 AI MCP Integration
-
-ROMA provides **native AI integration** through Model Context Protocol (MCP), allowing AI assistants (Claude, GPT, Cursor, etc.) to directly interact with your infrastructure.
-
-### MCP Architecture
-
-ROMA offers **two MCP integration modes**:
-
-#### 1. MCP Bridge (Lightweight, Recommended)
-
-A lightweight bridge that connects AI assistants to ROMA jump server via SSH.
-
-```
-AI Assistant (Claude Desktop/Cursor)
-        ↓ stdio (JSON-RPC)
-MCP Bridge (~5MB binary)
-        ↓ SSH (Port 2200)
-ROMA Jump Server
-        ↓
-Target Resources (Linux/Windows/Docker/Database/Router/Switch)
-```
-
-**Features:**
-- ✅ Lightweight (~5MB binary)
-- ✅ SSH-based connection (no HTTP API needed)
-- ✅ Full ROMA command support (ln, ls, whoami, etc.)
-- ✅ Automatic resource name matching
-- ✅ Multi-step execution support
-- ✅ Conversation history awareness
-
-**Quick Start:**
-```bash
-# 1. Build MCP Bridge
 cd mcp/bridge
 go build -o roma-mcp-bridge
+```
 
-# 2. Configure Claude Desktop
-# ~/.config/Claude/claude_desktop_config.json
+**2. Configure Claude Desktop:**
+
+Edit `~/.config/Claude/claude_desktop_config.json`:
+
+```json
 {
   "mcpServers": {
     "roma": {
       "command": "/path/to/roma-mcp-bridge",
       "env": {
-        "ROMA_SSH_HOST": "10.2.2.230",
+        "ROMA_SSH_HOST": "your-roma-server",
         "ROMA_SSH_PORT": "2200",
-        "ROMA_SSH_USER": "super",
+        "ROMA_SSH_USER": "your-username",
         "ROMA_SSH_KEY": "-----BEGIN OPENSSH PRIVATE KEY-----\n..."
       }
     }
@@ -283,583 +224,193 @@ go build -o roma-mcp-bridge
 }
 ```
 
-**Documentation:** [mcp/bridge/README.md](mcp/bridge/README.md)
+**3. Using AI Assistant:**
 
-#### 2. MCP Server (Integrated)
+Example commands:
+```
+"List all Linux servers"
+"Check disk usage on web-01"
+"Query user table in production database"
+"Upload configuration file to server"
+"Show all container running status"
+```
 
-MCP server integrated into ROMA main service (legacy, being phased out).
+**MCP Tools List:**
+
+| Category | Tool | Description |
+|----------|------|-------------|
+| Resource Query | `list_resources` | List resources |
+| | `get_resource_info` | Get resource details |
+| | `get_current_user` | Get current user |
+| Command Execution | `execute_command` | Execute shell commands |
+| | `execute_database_query` | Execute SQL queries |
+| | `execute_commands` | Batch command execution |
+| File Transfer | `copy_file_to_resource` | Upload file |
+| | `copy_file_from_resource` | Download file |
+| System Monitoring | `get_disk_usage` | Disk usage |
+| | `get_memory_usage` | Memory usage |
+| | `get_cpu_info` | CPU information |
+| | `get_process_list` | Process list |
+| | `get_network_info` | Network information |
+| | `get_system_info` | System information |
+
+**Detailed Documentation:** [mcp/bridge/README.md](mcp/bridge/README.md)
 
 ---
 
-### MCP Tools Overview
+## Security
 
-ROMA MCP Bridge provides **20+ powerful tools** organized into categories:
+ROMA provides multi-layer security protection suitable for production and internet-facing deployments:
 
-#### 📋 ROMA Resource Info Tools
+### Authentication & Authorization
 
-Query ROMA jump server's resource registry (not actual server data):
+- **SSH Key Authentication** - Password login disabled
+- **API Key Authorization** - Secure API access control
+- **Role-Based Access Control (RBAC)** - Fine-grained permission management
+- **Space Isolation** - Multi-tenant level resource isolation
 
-- `list_resources` - List all resources of a type
-- `get_resource_info` - Get detailed resource configuration
-- `get_current_user` - Get current user info and permissions
-- `get_command_history` - Get ROMA command history
+### Credential Security
 
-#### 💻 Actual Data Query Tools
+- **Bcrypt Password Hashing** - Encrypted user password storage
+- **AES-256-GCM Encryption** - Resource credential encryption
+- **Key Rotation** - Support for periodic key rotation
+- **JWT Tokens** - Secure session management
 
-Query actual server/database data:
+### Protection Mechanisms
 
-- `execute_command` - Execute shell commands on resources
-- `execute_database_query` - Execute SQL queries on databases
-- `execute_commands` - Execute multiple commands
-- `copy_file_to_resource` / `copy_file_from_resource` - File transfer (SCP)
+- **IP Blacklist** - Global IP blocking (with geolocation lookup)
+- **Rate Limiting** - Per-IP concurrent and QPS limits
+- **Auth Failure Tracking** - Automatic brute-force blocking
+- **Connection Throttling** - Unified SSH and API layer protection
+- **Audit Logging** - All operations are traceable
 
-#### 🔧 System Monitoring Tools
+### Network Security
 
-Convenience tools for common operations:
+- **Firewall Recommendations** - Expose only necessary ports
+- **VPN Integration** - Support VPN backend access
+- **TLS/SSL** - HTTPS and encrypted transmission
+- **DDoS Protection** - Connection throttling and IP blocking
 
-- `get_disk_usage` - Disk usage (df -h)
-- `get_memory_usage` - Memory usage (free -h)
-- `get_cpu_info` - CPU information (lscpu)
-- `get_process_list` - Process list (ps aux)
-- `get_network_info` - Network information (ip addr)
-- `get_uptime` - System uptime (uptime)
-- `get_system_info` - System details (uname, os-release)
+### Security Best Practices
 
-### AI Usage Examples
+1. **Change Default Credentials** - Immediately after deployment
+2. **Use Strong Passwords** - Length ≥ 12, mixed case, numbers, special characters
+3. **Regular Updates** - Keep ROMA and dependencies up to date
+4. **Monitor Audit Logs** - Regularly check for anomalous access
+5. **Least Privilege Principle** - Grant only necessary roles and permissions
+6. **Network Isolation** - Deploy ROMA in isolated network with access restrictions
 
-With MCP integration, you can use natural language to control your infrastructure:
-
-```
-💬 "List all Linux servers"
-💬 "What databases are in links-mysql?"
-💬 "Check disk usage on web-server-01"
-💬 "Show me the system logs on db-01"
-💬 "Execute 'df -h' on all production servers"
-💬 "Query the users table in links-mysql database"
-💬 "Upload file config.json to server-01 at /tmp/"
-```
-
-The AI will automatically:
-1. Choose the right tool
-2. Execute commands/queries
-3. Present results in a readable format
-4. Handle errors and retry with correct resource names
+**Security Configuration Guide:** [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
-## 🧩 Space Isolation & Flexible RBAC
+## Supported Resource Types
 
-Spaces (formerly “projects”) let you organize resources, users, and audit data into isolated tenants:
+| Type | Protocol | Features |
+|------|----------|----------|
+| Linux | SSH | Shell commands, file transfer |
+| Windows | WinRM | PowerShell commands |
+| Docker | Docker CLI | Container management, log viewing |
+| Database | Native | SQL queries (MySQL/PostgreSQL/Redis/MongoDB etc.) |
+| Router | SSH | Router CLI commands |
+| Switch | SSH | Switch CLI commands |
 
-- **Default Space** – A pre-seeded `default` space keeps legacy deployments working instantly.
-- **Per-Space Membership** – Users must join a space *and* own the required roles to access its resources.
-- **Resource Binding** – Every resource belongs to exactly one space. Super/system roles can reassign spaces via API or Web UI.
-- **Resource Roles** – Attach roles directly to resources (e.g. “ops”, “db-admin”) for fine-grained approval flows.
-- **Front-end Controls** – All resource editors display a space picker and filters so operators always know the scope they are touching.
-
-With spaces you can host multiple business units or environments inside a single ROMA cluster while retaining strict isolation.
-
----
-
-## 🛡️ Security Hardening Highlights
-
-ROMA now ships with a multi-layer defense stack out of the box:
-
-1. **API Safeguards**
-   - Global IP blacklist persisted in the database (with ipseek.cc metadata lookup).
-   - Rate limiter middleware (per-IP concurrent and QPS limits).
-   - Authentication failure tracker that escalates from warnings to automatic bans.
-2. **SSH Gateway Protection**
-   - Connection throttling + per-IP concurrency guard.
-   - Shared IP blacklist between API and SSH layers for unified operations.
-   - Structured logging for every allow/deny decision (debug-friendly).
-3. **Credential Safety**
-   - Bcrypt for user passwords, AES-256-GCM for resource credentials.
-   - Config-driven encryption keys + JWT secrets (exposed via `config.ex.toml`, Kubernetes manifests, Drone secrets).
-4. **Frontend Tooling**
-   - Dedicated “IP Blacklist” page with search, add/remove, and geo lookup.
-   - Visual cues for access decisions, space assignments, and audit trails.
-
-These controls make ROMA ready for Internet-facing deployments and protect against DDoS spikes, credential stuffing, and brute-force attacks.
+**Detailed Support:** [docs/RESOURCE_SUPPORT.md](docs/RESOURCE_SUPPORT.md)
 
 ---
 
-## 🚀 Quick Start
+## Documentation
 
-### Option A: Docker Quick Start (Recommended)
-
-The fastest way to try ROMA - no git clone needed!
-
-```bash
-# 1. Download quickstart configuration
-curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
-
-# 2. Start all services
-docker compose -f quickstart.yaml up -d
-
-# 3. Access services
-# - Web UI: http://localhost:7000
-# - API: http://localhost:6999
-# - SSH: localhost:2200
-```
-
-**Demo Credentials:**
-```
-Username: demo
-Password: demo123456
-Email: test@roma.binrc.com
-```
-
-> ⚠️ **Security Note**: Change the password after first login for production use!
-
-**What's Included:**
-- ✅ ROMA Backend (API + SSH Server)
-- ✅ ROMA Web UI (React Frontend)  
-- ✅ SQLite Database (lightweight, no external DB needed)
-- ✅ Pre-configured demo account
-
-**Verify Installation:**
-```bash
-# Check container status
-docker compose -f quickstart.yaml ps
-
-# View logs
-docker compose -f quickstart.yaml logs -f
-
-# SSH into ROMA jump server
-ssh demo@localhost -p 2200
-# Password: demo123456
-
-# In ROMA TUI:
-roma> ls
-roma> whoami
-roma> help
-```
-
-**Customize Configuration:**
-```bash
-# Create custom environment file
-cat > .env << EOF
-TAG=latest
-WEB_PORT=8080
-ROMA_SSH_PORT=2200
-ROMA_API_PORT=6999
-ROMA_USER_1ST_USERNAME=admin
-ROMA_USER_1ST_PASSWORD=YourStrongPassword123!
-EOF
-
-# Start with custom settings
-docker compose -f quickstart.yaml up -d
-```
-
-**Stop and Clean Up:**
-```bash
-# Stop services
-docker compose -f quickstart.yaml down
-
-# Remove all data (including database)
-docker compose -f quickstart.yaml down -v
-```
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (Docker/K8s/Binary) |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Development guide (Architecture/Contributing/Debugging) |
+| [SECURITY.md](docs/SECURITY.md) | Security configuration and best practices |
+| [SCP_USAGE.md](docs/SCP_USAGE.md) | Detailed SCP file transfer guide |
+| [API.md](docs/API.md) | RESTful API documentation |
+| [RESOURCE_SUPPORT.md](docs/RESOURCE_SUPPORT.md) | Resource type details |
+| [MCP_BRIDGE.md](mcp/bridge/README.md) | MCP Bridge usage guide |
+| [MCP_ARCHITECTURE.md](mcp/bridge/ARCHITECTURE.md) | MCP architecture design |
 
 ---
 
-### Option B: Manual Installation
+## Use Cases
 
-```bash
-git clone https://github.com/binrchq/roma.git
-cd roma
-go build -o roma cmd/roma/main.go
-```
-
-### 2. Configuration
-
-Create `configs/config.toml`:
-
-```toml
-[api]
-host = '0.0.0.0'
-port = '6999'
-
-[common]
-port = '2200'  # SSH jump server port
-prompt = 'roma'
-
-[database]
-cdb_url = '/usr/local/roma/roma.db'
-
-[apikey]
-prefix = 'apikey.'
-key = 'your-api-key-here'
-
-[user_1st]
-username = 'admin'
-email = 'admin@example.com'
-password = 'ChangeMe123!'  # ⚠️ Change this!
-public_key = 'ssh-rsa AAAAB3...'  # Your SSH public key
-roles = "super,system,ops"
-```
-
-### 3. Start ROMA
-
-```bash
-./roma -c configs/config.toml
-```
-
-ROMA will start:
-- **SSH Service** on port 2200 (jump server)
-- **API Service** on port 6999 (RESTful API)
-
-### 4. Connect via SSH
-
-```bash
-ssh super@your-roma-server -p 2200 -i ~/.ssh/your_key
-```
-
-You'll see the ROMA TUI with commands:
-- `ls` - List resources
-- `ln` - Login to resources
-- `use` - Switch resource type context
-- `whoami` - User information
-- `help` - Command help
-
-### 5. Setup MCP Bridge (Optional)
-
-```bash
-# Build MCP Bridge
-cd mcp/bridge
-go build -o roma-mcp-bridge
-
-# Configure environment variables
-export ROMA_SSH_HOST="your-roma-server"
-export ROMA_SSH_PORT="2200"
-export ROMA_SSH_USER="super"
-export ROMA_SSH_KEY="$(cat ~/.ssh/your_private_key)"
-
-# Test
-./roma-mcp-bridge
-```
-
-Then configure your AI assistant (Claude Desktop, Cursor, etc.) to use the bridge.
+- **Secure Remote Access** - Unified entry point, centralized control, full audit trail
+- **AI-Driven Operations** - AI assistants automate routine operational tasks
+- **Multi-Resource Management** - One-stop management for servers, databases, network devices
+- **Team Collaboration** - Centralized credential management, role-based access control
 
 ---
 
-## 🎮 Demo & Testing
+## Support
 
-### Online Demo
-
-Try ROMA without installation:
-
-🌐 **Demo URL**: https://roma-demo.binrc.com
-
-**Demo Credentials:**
-- Available on the demo login page
-- Read-only operations for safety
-
-**Demo Features:**
-- ✅ Full Web UI access
-- ✅ Pre-configured test resources
-- ✅ Read-only operations for safety
-- ⚠️ Demo data resets every 24 hours
+- Email: support@binrc.com
+- Issues: [GitHub Issues](https://github.com/binrchq/roma/issues)
+- Official Website: https://roma.binrc.com
 
 ---
 
-### Local Demo Setup
+## License
 
-Quickly set up a local demo environment with sample data:
+This project is licensed under dual licenses:
+- **GNU Affero General Public License (AGPL) v3.0**
+- **Commercial Software License Agreement**
 
-```bash
-# 1. Download and start ROMA
-curl -O https://raw.githubusercontent.com/binrchq/roma/main/deployment/quickstart.yaml
-docker compose -f quickstart.yaml up -d
-
-# 2. Access Web UI
-open http://localhost:7000
-
-# 3. Login with demo credentials
-# Username: demo
-# Password: demo123456
-```
-
-**Demo Account Details:**
-
-Credentials are configured in `deployment/config.toml` under `[user_1st]` section.
-
-**Default Roles:**
-- `super` - Full administrative access
-- `system` - System resource management
-- `ops` - Operations and monitoring
-- `ordinary` - Basic resource access
-
-**What You Can Test:**
-
-1. **Web UI Features:**
-   - Dashboard with resource statistics
-   - Resource management (Linux, Windows, Docker, Database, Router, Switch)
-   - User and role management (super admin only)
-   - Audit log viewer
-   - SSH key management
-
-2. **SSH Jump Server:**
-   ```bash
-   # Generate SSH key (if you don't have one)
-   ssh-keygen -t rsa -b 4096 -f ~/.ssh/roma_demo_key
-   
-   # Upload public key via Web UI:
-   # Settings -> SSH Keys -> Upload Public Key
-   
-   # Connect to ROMA
-   ssh super@localhost -p 2200 -i ~/.ssh/roma_demo_key
-   
-   # Try ROMA commands
-   roma> ls              # List resources
-   roma> use linux       # Switch to Linux context
-   roma> ls              # List Linux resources
-   roma> whoami          # Show user info
-   roma> help            # Show all commands
-   ```
-
-3. **API Testing:**
-   ```bash
-   # Get API key from Web UI: Settings -> API Keys
-   
-   # Test API
-   curl -H "apikey: your-api-key" http://localhost:6999/api/v1/resources
-   ```
-
-4. **MCP Bridge (AI Integration):**
-   ```bash
-   # Build MCP bridge
-   cd mcp/bridge
-   go build -o roma-mcp-bridge
-   
-   # Configure for local demo
-   export ROMA_SSH_HOST="localhost"
-   export ROMA_SSH_PORT="2200"
-   export ROMA_SSH_USER="super"
-   export ROMA_SSH_KEY="$(cat ~/.ssh/roma_demo_key)"
-   
-   # Test
-   ./roma-mcp-bridge
-   ```
-
-**Sample Resources (Pre-configured in Demo):**
-
-The demo environment includes sample resources for testing:
-- 📦 Linux servers (web-01, db-01)
-- 🐳 Docker containers
-- 🗄️ MySQL database (demo-db)
-- 🛣️ Network devices (router-01, switch-01)
-
-**Clean Up Demo:**
-```bash
-# Stop and remove containers
-docker compose -f quickstart.yaml down
-
-# Remove volumes (optional, removes all data)
-docker compose -f quickstart.yaml down -v
-```
-
----
-
-### Advanced: Docker with MySQL/PostgreSQL
-
-For production deployment with external database:
-
-```bash
-# Clone repository
-git clone https://github.com/binrchq/roma.git
-cd roma/deployment
-
-# Option 1: MySQL
-docker compose -f quickstart.mysql.yaml up -d
-
-# Option 2: PostgreSQL
-docker compose -f quickstart.pgsql.yaml up -d
-```
-
-See [deployment/](deployment/) directory for more configuration options.
-
----
-
-## 📚 Documentation
-
-- **[MCP Bridge Guide](mcp/bridge/README.md)** - Complete MCP Bridge documentation
-- **[MCP Bridge Architecture](mcp/bridge/ARCHITECTURE.md)** - Architecture details
-- **[Resource Support](docs/RESOURCE_SUPPORT.md)** - Detailed resource type support
-- **[API Documentation](docs/API.md)** - RESTful API reference
-
----
-
-## 🔗 Related Projects
-
-ROMA ecosystem includes multiple projects for different use cases:
-
-### 🌐 [roma-web](https://github.com/binrchq/roma-web)
-Modern React-based Web UI for ROMA management.
-
-**Features:**
-- 📊 Resource dashboard with real-time statistics
-- 🖥️ Web-based SSH terminal
-- 👥 User and role management
-- 🔑 SSH key management
-- 📝 Audit log viewer
-- 🎨 Modern, responsive design
-
-**Quick Start:**
-```bash
-docker pull binrc/roma-web:latest
-# or visit: https://github.com/binrchq/roma-web
-```
-
----
-
-### 🤖 [roma-mcp](https://github.com/binrchq/roma-mcp)
-Standalone MCP server for AI integration (alternative to MCP Bridge).
-
-**Features:**
-- 🔌 Full MCP protocol support
-- 🚀 Independent deployment
-- 🛠️ 20+ AI tools for infrastructure management
-- 💡 Works with Claude Desktop, Cursor, and other MCP clients
-
-**When to Use:**
-- Need standalone MCP server
-- Want to run MCP server on a different machine
-- Require custom MCP configurations
-
-**Quick Start:**
-```bash
-git clone https://github.com/binrchq/roma-mcp.git
-cd roma-mcp
-go build -o roma-mcp-server
-./roma-mcp-server
-```
-### 📊 Project Comparison
-
-| Project | Purpose | Technology | Deployment |
-|---------|---------|------------|------------|
-| **roma** | Core jump server | Go | Binary/Docker |
-| **roma-web** | Web management UI | React | Docker/Nginx |
-| **roma-mcp** | Standalone MCP server | Go | Binary/Docker |
-
----
-
-## 🎯 Use Cases
-
-### 1. Secure Remote Access
-
-Instead of exposing all servers directly:
-- Deploy ROMA as a jump server
-- Users connect to ROMA only
-- ROMA manages connections to internal resources
-- All access is logged and audited
-
-### 2. AI-Driven Operations
-
-Use AI assistants to:
-- Automate routine operations
-- Query infrastructure status
-- Execute commands across multiple servers
-- Generate reports and summaries
-
-### 3. Multi-Resource Management
-
-Manage diverse infrastructure from one place:
-- Linux servers
-- Windows servers
-- Docker containers
-- Databases (MySQL, PostgreSQL, Redis, etc.)
-- Network devices (routers, switches)
-
-### 4. Team Collaboration
-
-- Centralized credential management
-- Role-based access control
-- Audit logging for compliance
-- Web UI for non-technical users
-
----
-
-## 🔐 Security Features
-
-- ✅ **SSH Key Authentication** - No password authentication
-- ✅ **API Key Authorization** - Secure API access
-- ✅ **Role-Based Access Control (RBAC)** - Fine-grained permissions
-- ✅ **Audit Logging** - All operations are logged
-- ✅ **Credential Encryption** - Secure credential storage
-- ✅ **Session Management** - Track and manage active sessions
-
----
-
-## 🌐 Web Management Interface
-
-ROMA includes a modern web UI built with React:
-
-- 📊 Dashboard with resource statistics
-- 🖥️ Resource management (CRUD operations)
-- 👥 User and role management
-- 💻 Web SSH terminal
-- 📝 Audit log viewer
-
-**Start Web UI:**
-```bash
-cd web/frontend
-npm install
-npm run dev
-# Access at http://localhost:3000
-```
-
----
-
-## 📦 Project Structure
-
-```
-roma/
-├── cmd/roma/              # Main program entry
-├── core/                  # Core functionality
-│   ├── api/              # API controllers
-│   ├── model/            # Data models
-│   ├── operation/        # Business logic
-│   ├── connect/          # Connection handlers
-│   ├── tui/              # Terminal UI (SSH commands)
-│   └── constants/        # Constants (resource types, etc.)
-├── mcp/                  # MCP integration
-│   └── bridge/           # MCP Bridge (lightweight)
-│       ├── mappings/     # Tool mappings (organized)
-│       ├── main.go       # Bridge entry point
-│       └── client.go     # ROMA SSH client
-├── web/                  # Web components
-│   ├── frontend/         # React frontend
-│   ├── vscode-extension/ # VSCode extension
-│   └── ops-client/       # Electron desktop app
-├── configs/              # Configuration files
-└── docs/                # Documentation
-```
-
----
-
-## 🔗 License
-
-This project is licensed under Dual License ->  **GNU Affero General Public License (AGPL) v3.0** And **COMMERCIAL SOFTWARE LICENSE AGREEMENT**.
-
-📢 **Important**: Any organization or individual that modifies ROMA code for providing **remote access services** must **open source their modified version**.
+**Important**: Any organization or individual that modifies ROMA code for providing **remote access services** must **open source their modified version**.
 
 See [LICENSE](./LICENSE) for details.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please read our contributing guidelines and code of conduct.
-
----
-
-## 📞 Support
-
-- 📧 Email: support@binrc.com
-- 🐛 Issues: [GitHub Issues](https://github.com/binrchq/roma/issues)
-- 📖 Documentation: [docs/](docs/)
+Contributions are welcome! Please read [DEVELOPMENT.md](docs/DEVELOPMENT.md) for how to get involved.
 
 ---
 
-**ROMA** - A seamless solution for remote access, ensuring both efficiency and security. 🚀
+## Organization Support
+
+ROMA is supported and developed by:
+
+<p align="left" style="">
+  <a href="https://binrc.com" target="_blank" style="display: inline-block; vertical-align: middle; margin-right: 20px;">
+    <img src="https://binrc.com/img/logo_lite.png" alt="Binrc" height="40" />
+  </a>
+  <a href="https://ai2o.binrc.com" target="_blank" style="display: inline-block; vertical-align: middle;">
+    <img src="docs/AI2O_logo_white.png" alt="AI2O" height="80"  style="image-rendering: auto;"/>
+  </a>
+</p>
+
+---
+
+## Contributors
+
+Thanks to all developers who have contributed to ROMA:
+
+<a href="https://github.com/binrchq/roma/graphs/contributors">
+  <img src="https://avatars.githubusercontent.com/u/37877444?v=4" alt="Contributor" width="60" height="60" style="border-radius: 50%;" />
+</a>
+
+---
+
+## Related Products
+
+### ROMC - AI-Driven Operations Automation Platform
+
+ROMC is an operations automation tool developed by Binrc, integrating MCP protocol with intelligent terminal AI assistant.
+
+**Key Features:**
+- **Terminal AI Assistant** - Natural language interaction, intelligent understanding of operational intent
+- **Native MCP Integration** - Seamless integration with ROMA and other infrastructure
+- **Intelligent Decision Making** - AI-based fault diagnosis and auto-remediation
+- **Visual Operations** - Intuitive operational data display and analysis
+- **Workflow Automation** - Orchestrated operational process automation
+
+Coming soon.
+
+Learn more: https://binrc.com
+
+---
+
+**ROMA** - Secure and efficient remote access solution
