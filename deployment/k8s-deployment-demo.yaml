@@ -59,6 +59,8 @@ spec:
         - name: roma-demo-backend
           imagePullPolicy: Always
           image: registry.cn-hongkong.aliyuncs.com/binrchq/roma:latest
+          stdin: true  # 启用标准输入，支持交互式 SSH 会话
+          tty: true    # 分配伪终端，确保提示词和颜色正常显示
           ports:
             - containerPort: 2200
               name: ssh
