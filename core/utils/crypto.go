@@ -16,7 +16,7 @@ import (
 // 从配置或环境变量获取加密密钥
 func getEncryptionKey() []byte {
 	var key string
-	
+
 	// 优先从配置文件读取
 	if global.CONFIG != nil && global.CONFIG.Security != nil && global.CONFIG.Security.EncryptionKey != "" {
 		key = global.CONFIG.Security.EncryptionKey
@@ -24,13 +24,13 @@ func getEncryptionKey() []byte {
 		// 从环境变量读取
 		key = os.Getenv("ROMA_ENCRYPTION_KEY")
 	}
-	
+
 	if key == "" {
 		// 默认密钥（32字节，仅用于开发环境）
 		// 生产环境必须在配置文件或环境变量中设置
 		return []byte("roma-default-encryption-key-32bytes!!")
 	}
-	
+
 	// 确保密钥长度为32字节（AES-256）
 	keyBytes := []byte(key)
 	if len(keyBytes) < 32 {

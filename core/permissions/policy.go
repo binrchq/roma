@@ -4,6 +4,7 @@ import (
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
+	"github.com/rs/zerolog/log"
 )
 
 // CheckResourceAccess 检查用户是否有权限访问资源（多维度权限检查）
@@ -70,9 +71,16 @@ func CheckResourceAccessWithRoles(user *model.User, userRoles []*model.Role, res
 		// 获取资源所属的空间
 		resourceSpace, err := opSpace.GetResourceSpace(resourceID, resourceType)
 		if err == nil && resourceSpace != nil && resourceSpace.SpaceID > 0 {
-			// 检查1: 用户必须是空间成员
+			// 检查1: 用户必须是空间成员（这是强制要求，如果不满足直接拒绝）
 			isMember, err := opSpace.IsUserInSpace(user.ID, resourceSpace.SpaceID)
 			if err != nil || !isMember {
+				log.Debug().
+					Uint("user_id", user.ID).
+					Uint("space_id", resourceSpace.SpaceID).
+					Int64("resource_id", resourceID).
+					Str("resource_type", resourceType).
+					Str("action", action).
+					Msg("权限检查失败: 用户不是空间成员")
 				return false, "用户不是空间成员，无法访问空间资源"
 			}
 
@@ -83,8 +91,14 @@ func CheckResourceAccessWithRoles(user *model.User, userRoles []*model.Role, res
 				if err == nil && len(resourceRoles) > 0 {
 					hasMatchingRole := false
 					for _, rr := range resourceRoles {
-						// 只检查属于该空间的资源角色
-						if rr.SpaceID != nil && *rr.SpaceID == resourceSpace.SpaceID {
+						// 检查资源角色：如果资源角色有 SpaceID，必须与资源空间匹配；如果为 nil，则视为全局角色
+						roleSpaceMatch := true
+						if rr.SpaceID != nil {
+							// 资源角色有空间限制，必须与资源空间匹配
+							roleSpaceMatch = (*rr.SpaceID == resourceSpace.SpaceID)
+						}
+						// 如果空间匹配，检查用户是否有该角色
+						if roleSpaceMatch {
 							for _, ur := range userRoles {
 								if ur != nil && ur.ID == rr.RoleID {
 									hasMatchingRole = true
@@ -101,23 +115,74 @@ func CheckResourceAccessWithRoles(user *model.User, userRoles []*model.Role, res
 						if policy.RequireExactRoleMatch {
 							return false, "用户角色与资源要求的角色不匹配"
 						}
-						// 如果没有匹配的角色，继续检查空间角色权限
+						// 如果没有匹配的角色且不要求完全匹配，继续检查用户全局角色权限（第4步）
+					} else {
+						// 如果用户有匹配的角色且是空间成员，允许访问
+						return true, ""
 					}
 				}
 			}
 
-			// 检查3: 用户本身的角色是否有权限（成员在空间中的权限基于用户本身的角色，不需要检查空间成员角色）
-			// 用户角色已经在步骤1中检查过了，这里只需要确认用户在空间中即可
+			// 检查3: 如果资源没有角色要求，但用户在空间中，检查用户全局角色权限
+			// 继续到第4步检查全局角色权限
 		} else if resourceSpace == nil || resourceSpace.SpaceID == 0 {
-			// 资源没有空间归属，检查是否允许访问全局资源
-			// 如果启用了空间隔离，没有空间归属的资源默认不允许访问（除非有全局权限）
+			// 资源没有空间归属
+			// 如果启用了空间隔离，没有空间归属的资源应该被视为在 default 空间中
 			if policy.EnableSpaceIsolation {
-				// 继续检查全局角色权限（第4步）
+				// 如果配置了默认空间，尝试获取 default 空间
+				if policy.DefaultSpace != nil && *policy.DefaultSpace != "" {
+					defaultSpace, err := opSpace.GetSpaceByName(*policy.DefaultSpace)
+					if err == nil && defaultSpace != nil {
+						// 检查用户是否是 default 空间的成员
+						isMember, err := opSpace.IsUserInSpace(user.ID, defaultSpace.ID)
+						if err != nil || !isMember {
+							// 用户不是 default 空间成员，拒绝访问
+							log.Debug().
+								Uint("user_id", user.ID).
+								Uint("default_space_id", defaultSpace.ID).
+								Int64("resource_id", resourceID).
+								Str("resource_type", resourceType).
+								Str("action", action).
+								Msg("权限检查失败: 资源没有空间归属，且用户不是默认空间成员")
+							return false, "资源没有空间归属，且用户不是默认空间成员"
+						}
+						// 用户是 default 空间成员，继续检查角色权限（第4步）
+						log.Debug().
+							Uint("user_id", user.ID).
+							Uint("default_space_id", defaultSpace.ID).
+							Int64("resource_id", resourceID).
+							Str("resource_type", resourceType).
+							Msg("用户是默认空间成员，继续检查角色权限")
+					} else {
+						// 如果 default 空间不存在，且启用了空间隔离，拒绝访问
+						log.Debug().
+							Uint("user_id", user.ID).
+							Int64("resource_id", resourceID).
+							Str("resource_type", resourceType).
+							Str("action", action).
+							Str("default_space", *policy.DefaultSpace).
+							Msg("权限检查失败: 资源没有空间归属，且默认空间不存在")
+						return false, "资源没有空间归属，且默认空间不存在"
+					}
+				} else {
+					// 如果未配置默认空间，且启用了空间隔离，拒绝访问
+					log.Debug().
+						Uint("user_id", user.ID).
+						Int64("resource_id", resourceID).
+						Str("resource_type", resourceType).
+						Str("action", action).
+						Msg("权限检查失败: 资源没有空间归属，且未配置默认空间")
+					return false, "资源没有空间归属，且未配置默认空间"
+				}
 			}
+			// 如果没有启用空间隔离，继续检查全局角色权限（第4步）
 		}
 	}
 
 	// 4. 检查用户全局角色权限（传统方式）
+	// 注意：只有在以下情况下才会到达这里：
+	// 1. 资源有空间归属，用户是空间成员，且（资源没有角色要求 OR 用户有匹配的角色 OR 不要求完全匹配）
+	// 2. 资源没有空间归属，但（未启用空间隔离 OR 用户在 default 空间中）
 	for _, role := range userRoles {
 		if role == nil {
 			continue

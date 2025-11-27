@@ -78,6 +78,10 @@ steps:
         from_secret: PROD_roma-user-1st-nickname
       ROMA_USER_1ST_ROLES:
         from_secret: PROD_roma-user-1st-roles
+      ROMA_ENCRYPTION_KEY:
+        from_secret: PROD_roma-encryption-key
+      ROMA_JWT_SECRET:
+        from_secret: PROD_roma-jwt-secret
       HOME: /root
     commands:
       - echo "$KUBECONFIG" > /drone/src/kubeconfig
@@ -94,6 +98,8 @@ steps:
       - echo "ROMA_USER_1ST_NAME $ROMA_USER_1ST_NAME"
       - echo "ROMA_USER_1ST_NICKNAME $ROMA_USER_1ST_NICKNAME"
       - echo "ROMA_USER_1ST_ROLES $ROMA_USER_1ST_ROLES"
+      - echo "ROMA_ENCRYPTION_KEY $ROMA_ENCRYPTION_KEY"
+      - echo "ROMA_JWT_SECRET $ROMA_JWT_SECRET"
       - |
         set -e
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
@@ -109,6 +115,8 @@ steps:
           --from-literal=ROMA_USER_1ST_NAME="$ROMA_USER_1ST_NAME" \
           --from-literal=ROMA_USER_1ST_NICKNAME="$ROMA_USER_1ST_NICKNAME" \
           --from-literal=ROMA_USER_1ST_ROLES="$ROMA_USER_1ST_ROLES" \
+          --from-literal=ROMA_ENCRYPTION_KEY="$ROMA_ENCRYPTION_KEY" \
+          --from-literal=ROMA_JWT_SECRET="$ROMA_JWT_SECRET" \
           -n roma --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to prod
@@ -167,6 +175,10 @@ steps:
         from_secret: DEMO_roma-user-1st-nickname
       ROMA_USER_1ST_ROLES:
         from_secret: DEMO_roma-user-1st-roles
+      ROMA_ENCRYPTION_KEY:
+        from_secret: DEMO_roma-encryption-key
+      ROMA_JWT_SECRET:
+        from_secret: DEMO_roma-jwt-secret
       KUBECONFIG:
         from_secret: KUBECONFIG_DATA
       HOME: /root
@@ -185,6 +197,8 @@ steps:
       - echo "ROMA_USER_1ST_NAME $ROMA_USER_1ST_NAME"
       - echo "ROMA_USER_1ST_NICKNAME $ROMA_USER_1ST_NICKNAME"
       - echo "ROMA_USER_1ST_ROLES $ROMA_USER_1ST_ROLES"
+      - echo "ROMA_ENCRYPTION_KEY $ROMA_ENCRYPTION_KEY"
+      - echo "ROMA_JWT_SECRET $ROMA_JWT_SECRET"
       - |
         set -e
         kubectl --kubeconfig=/drone/src/kubeconfig create secret generic roma-secrets \
@@ -200,6 +214,8 @@ steps:
           --from-literal=ROMA_USER_1ST_NAME="$ROMA_USER_1ST_NAME" \
           --from-literal=ROMA_USER_1ST_NICKNAME="$ROMA_USER_1ST_NICKNAME" \
           --from-literal=ROMA_USER_1ST_ROLES="$ROMA_USER_1ST_ROLES" \
+          --from-literal=ROMA_ENCRYPTION_KEY="$ROMA_ENCRYPTION_KEY" \
+          --from-literal=ROMA_JWT_SECRET="$ROMA_JWT_SECRET" \
           -n demo --dry-run=client -o yaml | kubectl --kubeconfig=/drone/src/kubeconfig apply -f -
 
   - name: deploy to demo

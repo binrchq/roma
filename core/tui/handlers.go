@@ -28,8 +28,8 @@ func handleUse(ui *TUI, l *readline.Instance, args []string, input string) (stri
 	if err != nil {
 		return "~", err
 	}
-	// 切换页面时不显示 banner，只更新提示符
-	l.SetPrompt(ui.setPrompt(fold, false))
+	// 切换页面时显示 banner 和更新提示符
+	l.SetPrompt(ui.setPrompt(fold, true))
 	return fold, nil
 }
 
