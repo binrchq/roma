@@ -12,12 +12,14 @@ import (
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/initialize"
+	"binrc.com/roma/core/middleware"
 	"binrc.com/roma/core/operation"
 	"binrc.com/roma/core/pkg/i18n"
 	"binrc.com/roma/core/routers"
 	"binrc.com/roma/core/services"
 	"binrc.com/roma/core/sshd"
 	"binrc.com/roma/core/utils/logger"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/gin-contrib/pprof"
@@ -55,6 +57,9 @@ var (
 			LoadDatabase()
 			LoadI18n()
 			services.InitData()
+
+			// 初始化安全组件
+			initSecurity()
 
 			startServices()
 			return nil
@@ -186,6 +191,39 @@ func bindEnvVars() {
 	viper.BindEnv("title", "ROMA_TITLE")
 }
 
+// initSecurity 初始化安全组件
+// 用途: 初始化速率限制、IP黑名单、认证失败追踪等安全功能
+// 输入: 无
+// 输出: 无
+// 必要性: 保护系统免受DDoS攻击和暴力破解
+func initSecurity() {
+	// 初始化API速率限制器
+	// 参数：每个IP最大并发连接数，每秒最大连接数
+	middleware.InitRateLimiter(10, 3) // 每个IP最多10个并发连接，每秒最多3个新连接
+
+	// 初始化IP黑名单
+	middleware.InitIPBlacklist()
+
+	// 初始化API认证失败追踪器
+	// 参数：最大失败次数，封禁时长，失败计数窗口，是否启用指数退避
+	middleware.InitAuthFailureTracker(
+		5,                      // 5次失败后封禁
+		15*time.Minute,         // 封禁15分钟
+		5*time.Minute,          // 5分钟内的失败计数
+		true,                   // 启用指数退避
+	)
+
+	// 初始化SSH安全管理器
+	// 参数：每个IP最大并发连接数，每秒最大连接数，最大认证失败次数，封禁时长，失败计数窗口
+	sshd.InitSSHSecurity(
+		5,                      // 每个IP最多5个并发SSH连接
+		2,                      // 每秒最多2个新SSH连接
+		3,                      // 3次认证失败后封禁
+		30*time.Minute,         // 封禁30分钟
+		10*time.Minute,         // 10分钟内的失败计数
+	)
+}
+
 func startServices() {
 	go func() {
 		go StartApiService()
@@ -237,7 +275,8 @@ func StartSshdService() {
 		op.SaveHostKey(privateKeyBase64, publicKeyBase64)
 	}
 
-	ssh.Handle(func(sess ssh.Session) {
+	// 使用安全包装器包装连接处理器
+	secureHandler := sshd.SecureConnectionHandler(func(sess ssh.Session) {
 		defer func() {
 			if e, ok := recover().(error); ok {
 				logger.Logger.Panic(e)
@@ -245,6 +284,8 @@ func StartSshdService() {
 		}()
 		services.SessionHandler(&sess)
 	})
+	ssh.Handle(secureHandler)
+	
 	log.Printf("starting ssh server on port %s...\n", global.CONFIG.Common.Port)
 	hostKey, err := op.GetLatestHostKey()
 	if err != nil {
@@ -260,7 +301,7 @@ func StartSshdService() {
 		fmt.Sprintf(":%s", global.CONFIG.Common.Port),
 		nil,
 		// ssh.PasswordAuth(services.PasswordAuth),
-		ssh.PublicKeyAuth(services.PublicKeyAuth),
+		ssh.PublicKeyAuth(sshd.SecurePublicKeyAuth), // 使用安全的公钥认证包装器
 		ssh.HostKeyPEM(privateKeyBytes),
 	),
 	)

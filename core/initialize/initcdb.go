@@ -43,7 +43,7 @@ func InitCDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := migrateTables(db, &model.HostKey{}, &model.User{}, &model.Passport{}, &model.Role{}, &model.Apikey{}, &model.LinuxConfig{}, &model.WindowsConfig{}, &model.DatabaseConfig{}, &model.RouterConfig{}, &model.SwitchConfig{}, &model.ResourceRole{}, &model.Space{}, &model.SpaceMember{}, &model.ResourceSpace{}, &model.Tag{}, &model.CredentialAccessLog{}, &model.AccessLog{}, &model.DockerConfig{}, &model.AuditLog{}); err != nil {
+	if err := migrateTables(db, &model.HostKey{}, &model.User{}, &model.Passport{}, &model.Role{}, &model.Apikey{}, &model.LinuxConfig{}, &model.WindowsConfig{}, &model.DatabaseConfig{}, &model.RouterConfig{}, &model.SwitchConfig{}, &model.ResourceRole{}, &model.Space{}, &model.SpaceMember{}, &model.ResourceSpace{}, &model.Tag{}, &model.CredentialAccessLog{}, &model.AccessLog{}, &model.DockerConfig{}, &model.AuditLog{}, &model.Blacklist{}); err != nil {
 		return nil, err
 	}
 

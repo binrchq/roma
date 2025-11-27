@@ -3,14 +3,20 @@ package routers
 import (
 	"binrc.com/roma/core/api"
 	"binrc.com/roma/core/api/middleware"
+	securityMiddleware "binrc.com/roma/core/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 	// 使用中间件
-	r.Use(gin.Recovery()) // 恢复从任何恐慌中恢复，如果有的话
+	r.Use(gin.Recovery())              // 恢复从任何恐慌中恢复，如果有的话
 	r.Use(middleware.CORSMiddleware()) // CORS 支持，前后端分离时需要
+
+	// 安全中间件（按顺序添加，最先执行）
+	r.Use(securityMiddleware.IPBlacklistMiddleware()) // 1. IP黑名单检查（最先执行）
+	r.Use(securityMiddleware.RateLimitMiddleware())   // 2. 速率限制
+	r.Use(securityMiddleware.AuthFailureMiddleware()) // 3. 认证失败追踪（仅对登录接口生效）
 
 	// 健康检查端点 - 不需要认证，用于 Docker/K8s 健康检查
 	systemController := api.NewSystemController()
@@ -135,11 +141,22 @@ func SetupRouter() *gin.Engine {
 		spaceController := api.NewSpaceController()
 		spaces := v1.Group("/spaces")
 		{
-		spaces.GET("", middleware.RequirePermission("user", "list"), spaceController.GetAllSpaces)           // 获取空间列表
-		spaces.POST("", middleware.RequirePermission("user", "add"), spaceController.CreateSpace)            // 创建空间（需要 admin）
-		spaces.GET("/:id", middleware.RequirePermission("user", "get"), spaceController.GetSpaceByID)       // 获取空间详情
-		spaces.POST("/:id/members", middleware.RequirePermission("user", "add"), spaceController.AddSpaceMember)   // 添加空间成员
-		spaces.DELETE("/:id/members", middleware.RequirePermission("user", "delete"), spaceController.RemoveSpaceMember) // 移除空间成员
+			spaces.GET("", middleware.RequirePermission("user", "list"), spaceController.GetAllSpaces)                       // 获取空间列表
+			spaces.POST("", middleware.RequirePermission("user", "add"), spaceController.CreateSpace)                        // 创建空间（需要 admin）
+			spaces.GET("/:id", middleware.RequirePermission("user", "get"), spaceController.GetSpaceByID)                    // 获取空间详情
+			spaces.POST("/:id/members", middleware.RequirePermission("user", "add"), spaceController.AddSpaceMember)         // 添加空间成员
+			spaces.DELETE("/:id/members", middleware.RequirePermission("user", "delete"), spaceController.RemoveSpaceMember) // 移除空间成员
+		}
+
+		// 黑名单管理路由 - 需要 user.list 权限
+		blacklistController := api.NewBlacklistController()
+		blacklist := v1.Group("/blacklist")
+		{
+			blacklist.GET("", middleware.RequirePermission("user", "list"), blacklistController.GetAllBlacklists)             // 获取黑名单列表
+			blacklist.POST("", middleware.RequirePermission("user", "add"), blacklistController.AddToBlacklist)               // 添加IP到黑名单
+			blacklist.GET("/:ip", middleware.RequirePermission("user", "get"), blacklistController.GetBlacklistByIP)          // 获取IP的黑名单信息
+			blacklist.DELETE("/:ip", middleware.RequirePermission("user", "delete"), blacklistController.RemoveFromBlacklist) // 解禁IP
+			blacklist.GET("/ip-info/:ip", middleware.RequirePermission("user", "get"), blacklistController.GetIPInfo)         // 获取IP信息
 		}
 	}
 
