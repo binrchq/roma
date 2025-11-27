@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -37,14 +38,19 @@ func (s *SwitchConnector) ConnectSSH() error {
 	}
 
 	config := &gossh.ClientConfig{
-		User: s.Config.Username,
-		Auth: []gossh.AuthMethod{},
+		User:            s.Config.Username,
+		Auth:            []gossh.AuthMethod{},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	}
 
 	// 交换机通常只使用密码认证
 	if s.Config.Password != "" {
-		config.Auth = append(config.Auth, gossh.Password(s.Config.Password))
+		// 解密密码
+		decryptedPassword, err := utils.DecryptPassword(s.Config.Password)
+		if err != nil {
+			return fmt.Errorf("密码解密失败: %v", err)
+		}
+		config.Auth = append(config.Auth, gossh.Password(decryptedPassword))
 	}
 
 	client, err := gossh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), config)
@@ -269,4 +275,3 @@ func (s *SwitchConnector) Close() error {
 	}
 	return nil
 }
-

@@ -9,6 +9,7 @@ import (
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
 	"binrc.com/roma/core/permissions"
+	"binrc.com/roma/core/utils"
 )
 
 // 初始化一些数据库数据
@@ -61,18 +62,26 @@ func initSuperUser() {
 	log.Println(users)
 	if len(users) == 0 {
 		//交互式添加初始的超级管理员
+		// 使用 bcrypt 加密用户密码（不可逆）
+		hashedPassword, err := utils.HashPassword(global.CONFIG.User1st.Password)
+		if err != nil {
+			log.Printf("初始化用户密码加密失败: %v", err)
+			os.Exit(1)
+		}
 		user := &model.User{
 			Username:  global.CONFIG.User1st.Username,
 			Name:      global.CONFIG.User1st.Name,
 			Nickname:  global.CONFIG.User1st.Nickname,
-			Password:  global.CONFIG.User1st.Password,
+			Password:  hashedPassword,
 			PublicKey: global.CONFIG.User1st.PublicKey,
 			Email:     global.CONFIG.User1st.Email,
 		}
-		user, err := op.CreateUser(user)
-		if err != nil {
-			log.Println(err)
+		createdUser, createErr := op.CreateUser(user)
+		if createErr != nil {
+			log.Println(createErr)
+			return
 		}
+		user = createdUser
 		//添加超级管理员角色
 		opRole := operation.NewRoleOperation()
 		//获取角色的ID
@@ -139,7 +148,6 @@ func initSpaces() {
 
 	opSpace := operation.NewSpaceOperation()
 	opUser := operation.NewUserOperation()
-	opRole := operation.NewRoleOperation()
 
 	for _, spaceConfig := range global.CONFIG.Spaces {
 		if spaceConfig == nil || strings.TrimSpace(spaceConfig.Name) == "" {
@@ -193,16 +201,8 @@ func initSpaces() {
 			continue
 		}
 
-		// 获取默认角色
-		defaultRoleID := uint(0)
-		if spaceConfig.DefaultRole != "" {
-			role, err := opRole.GetRoleByName(spaceConfig.DefaultRole)
-			if err == nil && role != nil {
-				defaultRoleID = role.ID
-			}
-		}
-
 		// 添加空间成员
+		// 成员在空间中的权限基于用户本身的角色（通过 user_roles 表），不需要指定角色
 		for _, username := range spaceConfig.Members {
 			user, err := opUser.GetUserByUsername(strings.TrimSpace(username))
 			if err != nil {
@@ -210,16 +210,7 @@ func initSpaces() {
 				continue
 			}
 
-			roleID := defaultRoleID
-			if roleID == 0 {
-				// 如果没有默认角色，尝试使用用户的第一个角色
-				userRoles, err := opUser.GetUserRoles(user.ID)
-				if err == nil && len(userRoles) > 0 {
-					roleID = userRoles[0].ID
-				}
-			}
-
-			_, err = opSpace.AddSpaceMember(space.ID, user.ID, roleID)
+			_, err = opSpace.AddSpaceMember(space.ID, user.ID)
 			if err != nil {
 				log.Printf("add member %s to space %s failed: %v", username, spaceConfig.Name, err)
 			}

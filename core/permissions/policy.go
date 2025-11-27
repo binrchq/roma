@@ -106,21 +106,8 @@ func CheckResourceAccessWithRoles(user *model.User, userRoles []*model.Role, res
 				}
 			}
 
-			// 检查3: 用户在空间中的角色是否有权限
-			member, err := opSpace.GetSpaceMember(user.ID, resourceSpace.SpaceID)
-			if err == nil && member != nil && member.RoleID > 0 {
-				// 检查空间角色权限
-				opRole := operation.NewRoleOperation()
-				spaceRole, err := opRole.GetRoleByID(uint64(member.RoleID))
-				if err == nil && spaceRole != nil {
-					desc, err := ParseRoleDescriptor(spaceRole.Desc)
-					if err == nil && desc != nil {
-						if !HasPermission(desc, "resource", action, "") {
-							return false, "空间角色权限不足"
-						}
-					}
-				}
-			}
+			// 检查3: 用户本身的角色是否有权限（成员在空间中的权限基于用户本身的角色，不需要检查空间成员角色）
+			// 用户角色已经在步骤1中检查过了，这里只需要确认用户在空间中即可
 		} else if resourceSpace == nil || resourceSpace.SpaceID == 0 {
 			// 资源没有空间归属，检查是否允许访问全局资源
 			// 如果启用了空间隔离，没有空间归属的资源默认不允许访问（除非有全局权限）

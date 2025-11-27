@@ -42,9 +42,8 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// 验证密码（目前密码是明文存储，直接比较）
-	// TODO: 如果后续使用 bcrypt，需要在这里验证
-	if user.Password != req.Password {
+	// 使用 bcrypt 验证用户密码（不可逆加密）
+	if !utils.CheckPassword(user.Password, req.Password) {
 		utilG.Response(http.StatusUnauthorized, utils.ERROR, "用户名或密码错误")
 		return
 	}

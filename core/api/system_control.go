@@ -69,42 +69,35 @@ func (s *SystemController) GetSystemInfo(c *gin.Context) {
 	// 统计角色
 	roleCount := len(roles)
 
-	// 获取 SSH 服务信息
-	// 优先级：
-	// 1. 环境变量 ROMA_SSH_ADDRESS (格式: host:port)
-	// 2. 通过 Kubernetes API 查询 LoadBalancer Service
-	// 3. 环境变量 ROMA_SSH_HOST + 配置中的端口
-	// 4. 请求的 Host + 配置中的端口
-	sshAddress := os.Getenv("ROMA_SSH_ADDRESS")
-	var sshHost, sshPort string
+	// 获取主机密钥公钥
+	opHostKey := operation.NewHostKeyOperation()
+	var hostKeyPublicKey string
+	if hostKey, err := opHostKey.GetLatestHostKey(); err == nil && hostKey != nil {
+		hostKeyPublicKey = string(hostKey.PublicKey)
+	}
 
+	// 获取 SSH 服务端口
+	// 优先级：
+	// 1. 环境变量 ROMA_SSH_ADDRESS (格式: host:port) - 提取端口
+	// 2. 通过 Kubernetes API 查询 LoadBalancer Service 的 NodePort
+	// 3. 环境变量或配置中的端口
+	var sshPort string
+
+	sshAddress := os.Getenv("ROMA_SSH_ADDRESS")
 	if sshAddress != "" {
-		// 解析 host:port 格式
+		// 解析 host:port 格式，提取端口
 		parts := strings.Split(sshAddress, ":")
 		if len(parts) == 2 {
-			sshHost = parts[0]
 			sshPort = parts[1]
 		} else {
-			sshHost = sshAddress
 			sshPort = "2200"
 		}
 	} else {
-		// 尝试通过 Kubernetes API 查询 LoadBalancer Service
-		if k8sInfo, err := k8s.GetLoadBalancerAddressFromEnv(); err == nil {
-			sshHost = k8sInfo.Host
-			sshPort = k8sInfo.Port
+		// 尝试通过 Kubernetes API 查询 NodePort
+		if nodePort, err := k8s.GetNodePortFromEnv(); err == nil {
+			sshPort = nodePort
 		} else {
 			// 如果 Kubernetes 查询失败，使用环境变量或默认值
-			sshHost = os.Getenv("ROMA_SSH_HOST")
-			if sshHost == "" {
-				host := c.Request.Host
-				if host != "" {
-					sshHost = host
-				} else {
-					sshHost = "localhost"
-				}
-			}
-
 			sshPort = "2200"
 			if global.CONFIG != nil && global.CONFIG.Common != nil && global.CONFIG.Common.Port != "" {
 				sshPort = global.CONFIG.Common.Port
@@ -127,9 +120,8 @@ func (s *SystemController) GetSystemInfo(c *gin.Context) {
 			"total_roles":     roleCount,
 		},
 		"ssh_service": map[string]interface{}{
-			"host":    sshHost,
-			"port":    sshPort,
-			"address": sshHost + ":" + sshPort,
+			"port":       sshPort,
+			"public_key": hostKeyPublicKey,
 		},
 		"roles": roles,
 	}

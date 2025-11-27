@@ -510,9 +510,137 @@ func (r *ResourceControl) GetAllResource(c *gin.Context) {
 		uniqueResources[key] = res
 	}
 
-	finalList := make([]model.Resource, 0, len(uniqueResources))
+	// 批量获取所有资源的角色和空间信息（优化性能，避免 N+1 查询）
+	opResourceRole := operation.NewResourceRoleOperation()
+	opSpace := operation.NewSpaceOperation()
+
+	// 构建资源键映射：resourceKey -> (resource, resType)
+	type resourceInfo struct {
+		resource model.Resource
+		resType  string
+	}
+	resourceMap := make(map[string]resourceInfo)
+	resourceKeys := make([]string, 0, len(uniqueResources))
+
 	for _, res := range uniqueResources {
-		finalList = append(finalList, res)
+		var resType string
+		switch res.(type) {
+		case *model.LinuxConfig:
+			resType = constants.ResourceTypeLinux
+		case *model.WindowsConfig:
+			resType = constants.ResourceTypeWindows
+		case *model.DockerConfig:
+			resType = constants.ResourceTypeDocker
+		case *model.DatabaseConfig:
+			resType = constants.ResourceTypeDatabase
+		case *model.RouterConfig:
+			resType = constants.ResourceTypeRouter
+		case *model.SwitchConfig:
+			resType = constants.ResourceTypeSwitch
+		}
+
+		key := fmt.Sprintf("%s:%d", resType, res.GetID())
+		resourceMap[key] = resourceInfo{resource: res, resType: resType}
+		resourceKeys = append(resourceKeys, key)
+	}
+
+	// 批量获取当前资源的角色信息（优化：只查询当前资源的角色）
+	roleMap := make(map[string][]*model.Role) // key -> roles
+	if len(resourceKeys) > 0 {
+		// 构建查询条件：收集所有 (resource_type, resource_id) 对
+		type resourceKey struct {
+			ResourceType string
+			ResourceID   int64
+		}
+		resourceKeysList := make([]resourceKey, 0, len(resourceMap))
+		for key, info := range resourceMap {
+			_ = key // 避免未使用变量警告
+			resourceKeysList = append(resourceKeysList, resourceKey{
+				ResourceType: info.resType,
+				ResourceID:   info.resource.GetID(),
+			})
+		}
+
+		// 批量查询这些资源的角色
+		var allResourceRoles []model.ResourceRole
+		query := opResourceRole.DB.Preload("Role")
+		for _, rk := range resourceKeysList {
+			query = query.Or("resource_type = ? AND resource_id = ?", rk.ResourceType, rk.ResourceID)
+		}
+		query.Find(&allResourceRoles)
+
+		for _, rr := range allResourceRoles {
+			key := fmt.Sprintf("%s:%d", rr.ResourceType, rr.ResourceID)
+			if _, exists := resourceMap[key]; exists && rr.Role != nil {
+				roleMap[key] = append(roleMap[key], rr.Role)
+			}
+		}
+	}
+
+	// 批量获取当前资源的空间信息（优化：只查询当前资源的空间）
+	spaceMap := make(map[string]*model.Space) // key -> space
+	if len(resourceKeys) > 0 {
+		// 构建查询条件：收集所有 (resource_type, resource_id) 对
+		type resourceKey struct {
+			ResourceType string
+			ResourceID   int64
+		}
+		resourceKeysList := make([]resourceKey, 0, len(resourceMap))
+		for key, info := range resourceMap {
+			_ = key // 避免未使用变量警告
+			resourceKeysList = append(resourceKeysList, resourceKey{
+				ResourceType: info.resType,
+				ResourceID:   info.resource.GetID(),
+			})
+		}
+
+		// 批量查询这些资源的空间
+		var allResourceSpaces []model.ResourceSpace
+		query := opSpace.DB.Preload("Space")
+		for _, rk := range resourceKeysList {
+			query = query.Or("resource_type = ? AND resource_id = ?", rk.ResourceType, rk.ResourceID)
+		}
+		query.Find(&allResourceSpaces)
+
+		for _, rs := range allResourceSpaces {
+			key := fmt.Sprintf("%s:%d", rs.ResourceType, rs.ResourceID)
+			if _, exists := resourceMap[key]; exists && rs.Space != nil {
+				spaceMap[key] = rs.Space
+			}
+		}
+	}
+
+	// 构建最终列表
+	finalList := make([]interface{}, 0, len(uniqueResources))
+	for _, key := range resourceKeys {
+		info := resourceMap[key]
+		res := info.resource
+
+		// 获取该资源的角色和空间
+		roles := roleMap[key]
+		space := spaceMap[key]
+
+		// 将资源转换为 map，添加角色和空间信息
+		resMap := make(map[string]interface{})
+		// 使用 JSON 序列化/反序列化来转换资源对象
+		resJSON, _ := json.Marshal(res)
+		json.Unmarshal(resJSON, &resMap)
+
+		if len(roles) > 0 {
+			rolesJSON, _ := json.Marshal(roles)
+			var rolesArray []map[string]interface{}
+			json.Unmarshal(rolesJSON, &rolesArray)
+			resMap["roles"] = rolesArray
+		}
+
+		if space != nil {
+			spaceJSON, _ := json.Marshal(space)
+			var spaceMapData map[string]interface{}
+			json.Unmarshal(spaceJSON, &spaceMapData)
+			resMap["space"] = spaceMapData
+		}
+
+		finalList = append(finalList, resMap)
 	}
 
 	utilG.Response(utils.SUCCESS, utils.SUCCESS, finalList)
@@ -625,23 +753,35 @@ func (r *ResourceControl) GetResourceByID(c *gin.Context) {
 		}
 	}
 
-	// 获取资源的角色信息
-	var resourceRole model.ResourceRole
-	var roleInfo *model.Role
-	if err := opRes.DB.Where("resource_id = ? AND resource_type = ?", idInt, resourceType).First(&resourceRole).Error; err == nil {
-		opRole := operation.NewRoleOperation()
-		role, err := opRole.GetRoleByID(uint64(resourceRole.RoleID))
-		if err == nil {
-			roleInfo = role
+	// 获取资源的角色信息（所有角色）
+	opResourceRole := operation.NewResourceRoleOperation()
+	resourceRoles, _ := opResourceRole.GetResourceRoles(idInt, resourceType)
+	resourceRoleList := make([]*model.Role, 0)
+	for _, rr := range resourceRoles {
+		if rr.Role != nil {
+			resourceRoleList = append(resourceRoleList, rr.Role)
 		}
 	}
 
-	// 构建响应，包含资源信息和角色信息
+	// 获取资源的空间信息
+	opSpace := operation.NewSpaceOperation()
+	var space *model.Space
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(idInt, resourceType)
+	if spaceErr == nil && resourceSpace != nil && resourceSpace.Space != nil {
+		space = resourceSpace.Space
+	}
+
+	// 构建响应，包含资源信息、角色信息和空间信息
 	response := map[string]interface{}{
 		"resource": resource,
 	}
-	if roleInfo != nil {
-		response["role"] = roleInfo
+	if len(resourceRoleList) > 0 {
+		response["roles"] = resourceRoleList
+		// 为了向后兼容，也保留单个 role 字段（使用第一个角色）
+		response["role"] = resourceRoleList[0]
+	}
+	if space != nil {
+		response["space"] = space
 	}
 
 	utilG.Response(utils.SUCCESS, utils.SUCCESS, response)

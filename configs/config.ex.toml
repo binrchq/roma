@@ -27,6 +27,20 @@ level = 'debug'
 prefix = 'apikey.'
 key = 'AAAA2EAAHBZY26A25wOraC1c--------------------------xxx'    #接口用到的密钥
 
+[security]
+# 加密密钥（用于服务器密码加密，AES-256，需要32字节）
+# 生产环境必须设置，建议使用随机生成的32字节密钥
+# 可以通过以下命令生成：openssl rand -base64 32
+encryption_key = 'roma-default-encryption-key-32bytes!!'  # 仅用于开发环境，生产环境必须修改
+
+  [security.jwt]
+  # JWT 签名密钥（用于生成和验证 token）
+  # 生产环境必须设置，建议使用随机生成的密钥
+  # 可以通过以下命令生成：openssl rand -hex 32
+  secret = '06b79d28cdf03a575012a36f36d0ee738806b05072548efeca029a5ee1de85a9'  # 仅用于开发环境，生产环境必须修改
+  # Token 过期时间（小时），默认24小时
+  expire_hours = 24
+
 [user_1st]
 email = 'super@test.x'
 name = '超级管理员'

@@ -97,6 +97,10 @@ spec:
                   name: roma-secrets
                   key: ROMA_USER_1ST_PUBLIC_KEY
                   optional: true
+            - name: ROMA_ENCRYPTION_KEY
+              value: "demo-encryption-key-32bytes-for-demo-only!!"
+            - name: ROMA_JWT_SECRET
+              value: "demo-jwt-secret-key-for-demo-only-32bytes"
             - name: ROMA_API_CORS_ALLOW_ORIGINS
               value: "https://roma-demo.binrc.com"
             - name: TERM
@@ -234,6 +238,18 @@ data:
     [apikey]
     prefix = 'apikey.'
     key = 'DEMO_API_KEY_FOR_PUBLIC_DEMO_ONLY'
+
+    [security]
+    # 加密密钥（用于服务器密码加密，AES-256，需要32字节）
+    # 演示环境使用固定密钥（仅用于演示，生产环境必须使用随机密钥）
+    encryption_key = 'demo-encryption-key-32bytes-for-demo-only!!'
+
+      [security.jwt]
+      # JWT 签名密钥（用于生成和验证 token）
+      # 演示环境使用固定密钥（仅用于演示，生产环境必须使用随机密钥）
+      secret = 'demo-jwt-secret-key-for-demo-only-32bytes'
+      # Token 过期时间（小时），默认24小时
+      expire_hours = 24
 
     [user_1st]
     email = 'demo@roma.example.com'

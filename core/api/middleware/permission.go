@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -88,6 +89,7 @@ func CheckPermission(user *model.User, target string, opName string, resourceSco
 	opUser := operation.NewUserOperation()
 	roles, err := opUser.GetUserRoles(user.ID)
 	if err != nil {
+		log.Printf("CheckPermission: 获取用户角色失败 user_id=%d, error=%v", user.ID, err)
 		return false
 	}
 
@@ -97,7 +99,16 @@ func CheckPermission(user *model.User, target string, opName string, resourceSco
 
 	// 检查是否有 super 角色（通过权限描述符判断，不硬编码角色名称）
 	for _, role := range roles {
+		if role == nil {
+			continue
+		}
 		if permissions.IsSuperRole(role) {
+			log.Printf("CheckPermission: 用户 %d 拥有 super 角色 %s (id=%d), 允许操作 %s.%s", user.ID, role.Name, role.ID, target, opName)
+			return true
+		}
+		// 也检查是否有所有权限的角色
+		if permissions.HasAllPermissions(role) {
+			log.Printf("CheckPermission: 用户 %d 拥有所有权限角色 %s (id=%d), 允许操作 %s.%s", user.ID, role.Name, role.ID, target, opName)
 			return true
 		}
 	}
@@ -330,7 +341,13 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 					if reason != "" {
 						msg = fmt.Sprintf("%s (%s)", msg, reason)
 					}
-					utilG.Response(http.StatusForbidden, utils.ERROR, msg)
+					// 使用 403 作为 HTTP 状态码和 JSON code，确保前端能正确识别权限错误
+					c.JSON(http.StatusForbidden, utils.Response{
+						Code: http.StatusForbidden,
+						Msg:  "Permission denied",
+						Data: msg,
+						URI:  c.Request.RequestURI,
+					})
 					c.Abort()
 					return
 				}
@@ -338,8 +355,27 @@ func RequirePermission(target string, opName string) gin.HandlerFunc {
 		}
 
 		// 检查全局角色权限（对于非资源操作或资源列表操作）
-		if !CheckPermission(user, target, opName, resourceScope) {
-			utilG.Response(http.StatusForbidden, utils.ERROR, fmt.Sprintf("Permission denied: %s.%s", target, opName))
+		hasPermission := CheckPermission(user, target, opName, resourceScope)
+		if !hasPermission {
+			// 记录详细的权限检查失败信息，便于调试
+			log.Printf("RequirePermission: 权限检查失败 - user_id=%d, username=%s, target=%s, opName=%s, path=%s",
+				user.ID, user.Username, target, opName, c.Request.URL.Path)
+			opUser := operation.NewUserOperation()
+			roles, _ := opUser.GetUserRoles(user.ID)
+			for _, role := range roles {
+				if role != nil {
+					log.Printf("RequirePermission: 用户角色 - name=%s, id=%d, desc=%s", role.Name, role.ID, role.Desc)
+				}
+			}
+
+			// 权限检查失败，返回 403 Forbidden，并阻止后续 handler 执行
+			// 使用 403 作为 HTTP 状态码和 JSON code，确保前端能正确识别权限错误
+			c.JSON(http.StatusForbidden, utils.Response{
+				Code: http.StatusForbidden,
+				Msg:  "Permission denied",
+				Data: fmt.Sprintf("Permission denied: %s.%s", target, opName),
+				URI:  c.Request.RequestURI,
+			})
 			c.Abort()
 			return
 		}

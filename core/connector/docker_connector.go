@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -53,7 +54,12 @@ func (d *DockerConnector) Connect() error {
 	}
 
 	if d.Config.Password != "" {
-		config.Auth = append(config.Auth, gossh.Password(d.Config.Password))
+		// 解密密码
+		decryptedPassword, err := utils.DecryptPassword(d.Config.Password)
+		if err != nil {
+			return fmt.Errorf("密码解密失败: %v", err)
+		}
+		config.Auth = append(config.Auth, gossh.Password(decryptedPassword))
 	}
 
 	client, err := gossh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), config)

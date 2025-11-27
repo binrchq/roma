@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -115,7 +116,12 @@ func (r *RouterConnector) ConnectSSH() error {
 	}
 
 	if r.Config.Password != "" {
-		config.Auth = append(config.Auth, gossh.Password(r.Config.Password))
+		// 解密密码
+		decryptedPassword, err := utils.DecryptPassword(r.Config.Password)
+		if err != nil {
+			return fmt.Errorf("密码解密失败: %v", err)
+		}
+		config.Auth = append(config.Auth, gossh.Password(decryptedPassword))
 	}
 
 	client, err := gossh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), config)

@@ -26,7 +26,6 @@ func (s *SpaceOperation) CreateSpace(space *model.Space) (*model.Space, error) {
 func (s *SpaceOperation) GetSpaceByID(id uint) (*model.Space, error) {
 	var space model.Space
 	if err := s.DB.Preload("Members.User").
-		Preload("Members.Role").
 		Preload("Resources").
 		Preload("Creator").
 		First(&space, id).Error; err != nil {
@@ -45,14 +44,18 @@ func (s *SpaceOperation) GetSpaceByName(name string) (*model.Space, error) {
 }
 
 // AddSpaceMember 添加空间成员
-func (s *SpaceOperation) AddSpaceMember(spaceID, userID, roleID uint) (*model.SpaceMember, error) {
+// 成员在空间中的权限基于用户本身的角色（通过 user_roles 表），不需要指定角色
+func (s *SpaceOperation) AddSpaceMember(spaceID, userID uint) (*model.SpaceMember, error) {
 	member := &model.SpaceMember{
 		SpaceID:  spaceID,
 		UserID:   userID,
-		RoleID:   roleID,
 		IsActive: true,
 	}
 	if err := s.DB.Create(member).Error; err != nil {
+		return nil, err
+	}
+	// 预加载 User 信息以便前端显示
+	if err := s.DB.Preload("User").First(member, member.ID).Error; err != nil {
 		return nil, err
 	}
 	return member, nil
@@ -73,7 +76,7 @@ func (s *SpaceOperation) IsUserInSpace(userID, spaceID uint) (bool, error) {
 func (s *SpaceOperation) GetSpaceMember(userID, spaceID uint) (*model.SpaceMember, error) {
 	var member model.SpaceMember
 	if err := s.DB.Where("user_id = ? AND space_id = ? AND is_active = ?", userID, spaceID, true).
-		Preload("Role").First(&member).Error; err != nil {
+		Preload("User").First(&member).Error; err != nil {
 		return nil, err
 	}
 	return &member, nil
@@ -112,7 +115,6 @@ func (s *SpaceOperation) GetUserSpaces(userID uint) ([]*model.Space, error) {
 		Joins("JOIN space_members ON spaces.id = space_members.space_id").
 		Where("space_members.user_id = ? AND space_members.is_active = ? AND spaces.is_active = ?", userID, true, true).
 		Preload("Members.User").
-		Preload("Members.Role").
 		Preload("Creator").
 		Find(&spaces).Error; err != nil {
 		return nil, err
@@ -125,7 +127,6 @@ func (s *SpaceOperation) GetAllSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 	if err := s.DB.Where("is_active = ?", true).
 		Preload("Members.User").
-		Preload("Members.Role").
 		Preload("Creator").
 		Find(&spaces).Error; err != nil {
 		return nil, err

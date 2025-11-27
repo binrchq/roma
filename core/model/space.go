@@ -20,11 +20,11 @@ type Space struct {
 }
 
 // SpaceMember 空间成员
+// 成员在空间中的权限基于用户本身的角色（通过 user_roles 表），不需要在空间成员中存储角色
 type SpaceMember struct {
 	ID        uint      `gorm:"column:id;primaryKey" json:"id"`
 	SpaceID   uint      `gorm:"column:space_id;index" json:"space_id"`
 	UserID    uint      `gorm:"column:user_id;index" json:"user_id"`
-	RoleID    uint      `gorm:"column:role_id;index" json:"role_id"` // 空间内角色
 	IsActive  bool      `gorm:"column:is_active;default:true" json:"is_active"`
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
@@ -32,7 +32,6 @@ type SpaceMember struct {
 	// 关联关系
 	Space *Space `gorm:"foreignKey:SpaceID" json:"space,omitempty"`
 	User  *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Role  *Role  `gorm:"foreignKey:RoleID" json:"role,omitempty"`
 }
 
 // ResourceSpace 资源空间关联

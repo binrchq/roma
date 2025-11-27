@@ -76,12 +76,19 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 			roles = append(roles, *role)
 		}
 	}
+	// 使用 bcrypt 加密用户密码（不可逆）
+	hashedPassword, encryptErr := utils.HashPassword(req.Password)
+	if encryptErr != nil {
+		utilG.Response(http.StatusInternalServerError, utils.ERROR, "密码加密失败: "+encryptErr.Error())
+		return
+	}
+
 	// 创建新用户
 	newUser := &model.User{
 		Username:  req.Username,
 		Name:      req.Name,
 		Nickname:  req.Nickname,
-		Password:  req.Password,
+		Password:  hashedPassword,
 		PublicKey: req.PublicKey,
 		Email:     req.Email,
 		Roles:     roles, // 关联角色
@@ -94,16 +101,30 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// 添加角色关联
+	// 添加角色关联（如果失败，记录警告但不影响用户创建）
+	var roleErrors []string
 	for _, role := range roles {
 		err = opUser.AddRoleToUser(newUser.ID, role.ID)
 		if err != nil {
-			utilG.Response(http.StatusInternalServerError, utils.ERROR, "添加用户角色失败: "+err.Error())
-			return
+			// 记录错误但继续处理其他角色
+			roleErrors = append(roleErrors, fmt.Sprintf("角色 %s 添加失败: %v", role.Name, err))
+			log.Printf("添加用户角色失败: user_id=%d, role_id=%d, error=%v", newUser.ID, role.ID, err)
 		}
 	}
 
-	utilG.Response(http.StatusOK, utils.SUCCESS, "用户创建成功")
+	// 如果有角色添加失败，返回警告信息，但用户已创建成功
+	if len(roleErrors) > 0 {
+		// 返回用户信息和警告
+		responseData := map[string]interface{}{
+			"user":    newUser,
+			"warning": "用户创建成功，但部分角色添加失败: " + fmt.Sprintf("%v", roleErrors),
+		}
+		utilG.Response(http.StatusOK, utils.SUCCESS, responseData)
+		return
+	}
+
+	// 全部成功，返回用户信息
+	utilG.Response(http.StatusOK, utils.SUCCESS, newUser)
 }
 
 // GetAllUsers godoc
@@ -304,7 +325,13 @@ func (uc *UserController) UpdateProfile(c *gin.Context) {
 		currentUser.Email = req.Email
 	}
 	if req.Password != "" {
-		currentUser.Password = req.Password // TODO: 如果使用 bcrypt，需要加密
+		// 使用 bcrypt 加密用户密码（不可逆）
+		hashedPassword, err := utils.HashPassword(req.Password)
+		if err != nil {
+			utilG.Response(http.StatusInternalServerError, utils.ERROR, "密码加密失败: "+err.Error())
+			return
+		}
+		currentUser.Password = hashedPassword
 	}
 
 	opUser := operation.NewUserOperation()

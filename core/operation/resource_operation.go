@@ -7,6 +7,7 @@ import (
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
@@ -84,6 +85,14 @@ func (r *ResourceOperation) CreateLinuxResource(resource *model.LinuxConfig) (*m
 }
 
 func (r *ResourceOperation) CreateWindowsResource(resource *model.WindowsConfig) (*model.WindowsConfig, error) {
+	// 加密密码
+	if resource.Password != "" {
+		encryptedPassword, err := utils.EncryptPassword(resource.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		resource.Password = encryptedPassword
+	}
 	if err := r.DB.Where(model.WindowsConfig{Hostname: resource.Hostname}).FirstOrCreate(resource).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("hostname already exists: %w", err)
@@ -114,6 +123,14 @@ func (r *ResourceOperation) CreateRouterResource(resource *model.RouterConfig) (
 }
 
 func (r *ResourceOperation) CreateSwitchResource(resource *model.SwitchConfig) (*model.SwitchConfig, error) {
+	// 加密密码
+	if resource.Password != "" {
+		encryptedPassword, err := utils.EncryptPassword(resource.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		resource.Password = encryptedPassword
+	}
 	if err := r.DB.Where(model.SwitchConfig{SwitchName: resource.SwitchName}).FirstOrCreate(resource).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("switch name already exists: %w", err)
@@ -179,6 +196,18 @@ func (r *ResourceOperation) UpdateWindowsResource(resource *model.WindowsConfig)
 		return nil, err
 	}
 
+	// 如果提供了新密码，加密密码（可逆加密，用于服务器连接）
+	if resource.Password != "" && resource.Password != existingResource.Password {
+		encryptedPassword, err := utils.EncryptPassword(resource.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		resource.Password = encryptedPassword
+	} else {
+		// 如果没有提供新密码，保持原密码
+		resource.Password = existingResource.Password
+	}
+
 	// Update the resource with the new data
 	if err := r.DB.Model(existingResource).Updates(resource).Error; err != nil {
 		return nil, err
@@ -230,6 +259,18 @@ func (r *ResourceOperation) UpdateSwitchResource(resource *model.SwitchConfig) (
 			return nil, fmt.Errorf("switch name not found: %w", err)
 		}
 		return nil, err
+	}
+
+	// 如果提供了新密码，加密密码（可逆加密，用于服务器连接）
+	if resource.Password != "" && resource.Password != existingResource.Password {
+		encryptedPassword, err := utils.EncryptPassword(resource.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		resource.Password = encryptedPassword
+	} else {
+		// 如果没有提供新密码，保持原密码
+		resource.Password = existingResource.Password
 	}
 
 	// Update the resource with the new data

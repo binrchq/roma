@@ -7,6 +7,7 @@ type Config struct {
 	Database            *DatabaseConfig         `mapstructure:"database"`
 	Log                 *LogConfig              `mapstructure:"log"`
 	ApiKey              *ApiKeyConfig           `mapstructure:"apikey"`
+	Security            *SecurityConfig         `mapstructure:"security"`
 	User1st             *UserFirstConfig        `mapstructure:"user_1st"`
 	Roles               []*RoleConfig           `mapstructure:"roles"`
 	Spaces              []*SpaceConfig          `mapstructure:"spaces"`
@@ -125,4 +126,20 @@ type ControlPassportConfig struct {
 	PassportPub  string `mapstructure:"passport_pub"`
 	Passport     string `mapstructure:"passport"`
 	Description  string `mapstructure:"description"`
+}
+
+// SecurityConfig 安全配置
+type SecurityConfig struct {
+	// 加密密钥（用于服务器密码加密，AES-256，需要32字节）
+	EncryptionKey string `mapstructure:"encryption_key"`
+	// JWT 配置
+	JWT *JWTConfig `mapstructure:"jwt"`
+}
+
+// JWTConfig JWT 配置
+type JWTConfig struct {
+	// JWT 签名密钥（用于生成和验证 token）
+	Secret string `mapstructure:"secret"`
+	// Token 过期时间（小时），默认24小时
+	ExpireHours int `mapstructure:"expire_hours"`
 }

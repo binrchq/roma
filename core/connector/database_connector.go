@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -55,10 +56,15 @@ func (d *DatabaseConnector) connectMySQL() (*sql.DB, error) {
 		host = d.Config.IPv6
 	}
 
+	// 解密密码
+	decryptedPassword, err := utils.DecryptPassword(d.Config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("密码解密失败: %v", err)
+	}
 	// DSN格式: username:password@tcp(host:port)/database
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		d.Config.Username,
-		d.Config.Password,
+		decryptedPassword,
 		host,
 		d.Config.Port,
 		d.Config.DatabaseName,
@@ -93,10 +99,15 @@ func (d *DatabaseConnector) connectPostgreSQL() (*sql.DB, error) {
 		host = d.Config.IPv6
 	}
 
+	// 解密密码
+	decryptedPassword, err := utils.DecryptPassword(d.Config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("密码解密失败: %v", err)
+	}
 	// DSN格式: postgres://username:password@host:port/database?sslmode=disable
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		d.Config.Username,
-		d.Config.Password,
+		decryptedPassword,
 		host,
 		d.Config.Port,
 		d.Config.DatabaseName,
@@ -131,10 +142,15 @@ func (d *DatabaseConnector) connectMongoDB() (*mongo.Client, error) {
 		host = d.Config.IPv6
 	}
 
+	// 解密密码
+	decryptedPassword, err := utils.DecryptPassword(d.Config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("密码解密失败: %v", err)
+	}
 	// MongoDB URI格式
 	uri := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s",
 		d.Config.Username,
-		d.Config.Password,
+		decryptedPassword,
 		host,
 		d.Config.Port,
 		d.Config.DatabaseName,
@@ -167,11 +183,16 @@ func (d *DatabaseConnector) connectRedis() (interface{}, error) {
 		host = d.Config.IPv4Priv
 	}
 
+	// 解密密码
+	decryptedPassword, err := utils.DecryptPassword(d.Config.Password)
+	if err != nil {
+		return nil, fmt.Errorf("密码解密失败: %v", err)
+	}
 	return map[string]interface{}{
 		"type":     "redis",
 		"host":     host,
 		"port":     d.Config.Port,
-		"password": d.Config.Password,
+		"password": decryptedPassword,
 		"message":  "Redis 连接需要使用 redis-cli 或客户端库",
 	}, nil
 }

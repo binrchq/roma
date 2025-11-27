@@ -186,10 +186,13 @@ func IsSuperRole(role *model.Role) bool {
 	if role == nil {
 		return false
 	}
+
+	// 尝试解析结构化权限描述符
 	desc, err := ParseRoleDescriptor(role.Desc)
 	if err == nil && desc != nil {
 		return desc.IsSuper
 	}
+
 	return false
 }
 

@@ -178,6 +178,7 @@ func (sc *SpaceController) GetSpaceByID(c *gin.Context) {
 }
 
 // AddSpaceMember 添加空间成员
+// 成员在空间中的权限基于用户本身的角色（通过 user_roles 表），不需要指定角色
 func (sc *SpaceController) AddSpaceMember(c *gin.Context) {
 	utilG := utils.Gin{C: c}
 	spaceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -193,7 +194,7 @@ func (sc *SpaceController) AddSpaceMember(c *gin.Context) {
 	}
 
 	opSpace := operation.NewSpaceOperation()
-	member, err := opSpace.AddSpaceMember(uint(spaceID), req.UserID, req.RoleID)
+	member, err := opSpace.AddSpaceMember(uint(spaceID), req.UserID)
 	if err != nil {
 		utilG.Response(http.StatusInternalServerError, utils.ERROR, "添加成员失败: "+err.Error())
 		return
@@ -204,7 +205,6 @@ func (sc *SpaceController) AddSpaceMember(c *gin.Context) {
 
 type AddSpaceMemberRequest struct {
 	UserID uint `json:"user_id" binding:"required"`
-	RoleID uint `json:"role_id" binding:"required"`
 }
 
 // RemoveSpaceMember 移除空间成员
