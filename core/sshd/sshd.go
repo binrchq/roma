@@ -14,9 +14,24 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
-// NewTerminal NewTerminal
-func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key string, resType string) error {
-	upstreamClient, err := NewSSHClient(ip, port, sshUser, key, resType)
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// NewTerminal 创建交互式 SSH 终端
+// 输入: sess - SSH 会话；ip - 目标 IP；port - 目标端口；sshUser - SSH 用户名；key - 私钥；resType - 资源类型；password - 密码（可选）
+// 输出: error - 错误信息
+// 必要性: 这是建立交互式 SSH 终端的核心函数，支持公钥和密码两种认证方式
+func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key string, resType string, password ...string) error {
+	var pwd string
+	if len(password) > 0 {
+		pwd = password[0]
+	}
+	upstreamClient, err := NewSSHClient(ip, port, sshUser, key, resType, pwd)
 	if err != nil {
 		return err
 	}
@@ -95,29 +110,104 @@ func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key str
 	return nil
 }
 
-// NewSSHClient NewSSHClient
-func NewSSHClient(ip string, port int, sshUser string, key string, resType string) (*gossh.Client, error) {
+// NewSSHClient 创建 SSH 客户端连接
+// 输入: ip - 目标 IP 地址；port - 目标端口；sshUser - SSH 用户名；key - 私钥内容（可为空）；resType - 资源类型；password - 密码（可为空）
+// 输出: *gossh.Client - SSH 客户端；error - 错误信息
+// 必要性: 这是建立 SSH 连接的核心函数，支持公钥和密码两种认证方式
+func NewSSHClient(ip string, port int, sshUser string, key string, resType string, password ...string) (*gossh.Client, error) {
+	var pwd string
+	if len(password) > 0 {
+		pwd = password[0]
+	}
+
+	// 认证优先级：
+	// 1. 优先使用资源自身的密钥字段（通过 key 参数传入，来自资源的 PrivateKey 字段）
+	// 2. 如果资源没有配置密钥，则从 passports 表查找该资源类型的默认密钥
+	// 3. 如果都没有，且提供了密码，则使用密码认证
+
+	// 记录密钥来源，便于调试
+	keySource := "resource"
 	if key == "" {
+		keySource = "passport"
 		op := operation.NewPassportOperation()
 		keys, err := op.GetPassportByType(resType)
 		if err != nil {
-			logger.Logger.Error(err)
-			return nil, err
+			logger.Logger.Error(fmt.Sprintf("Failed to get passport for resource type %s: %v", resType, err))
+			// 如果 passports 表中也没有密钥，且没有密码，则返回错误
+			if pwd == "" {
+				return nil, fmt.Errorf("no key found (resource PrivateKey is empty, and no passport found for type %s) and no password provided", resType)
+			}
+		} else if len(keys) > 0 {
+			key = keys[0].Passport
+			if sshUser == "" {
+				sshUser = keys[0].ServiceUser
+			}
+			logger.Logger.Info(fmt.Sprintf("Using passport key for resource type %s", resType))
+		} else {
+			keySource = "none"
+			logger.Logger.Warning(fmt.Sprintf("No passport found for resource type %s", resType))
 		}
-		key = keys[0].Passport
-		sshUser = keys[0].ServiceUser
+	} else {
+		logger.Logger.Debug(fmt.Sprintf("Using resource PrivateKey (length: %d)", len(key)))
 	}
-	signer, err := gossh.ParsePrivateKey([]byte(key))
-	if err != nil {
-		logger.Logger.Error(err)
-		return nil, err
+
+	// 构建认证方法列表
+	authMethods := []gossh.AuthMethod{}
+
+	// 优先使用私钥认证
+	if key != "" {
+		// 清理密钥字符串（去除前后空白）
+		key = strings.TrimSpace(key)
+		if key == "" {
+			logger.Logger.Warning("Private key is empty after trimming whitespace")
+		} else {
+			// 处理转义的换行符：将字符串 "\n" 转换为实际的换行符
+			// 数据库中可能存储的是转义的换行符（\n），需要转换为实际的换行符
+			key = strings.ReplaceAll(key, "\\n", "\n")
+
+			// 尝试解析私钥
+			signer, err := gossh.ParsePrivateKey([]byte(key))
+			if err != nil {
+				logger.Logger.Error(fmt.Sprintf("Failed to parse private key from %s (key length: %d, first 50 chars: %s): %v", keySource, len(key), key[:min(len(key), 50)], err))
+				// 如果密钥解析失败，记录详细错误，但继续尝试密码认证
+			} else {
+				authMethods = append(authMethods, gossh.PublicKeys(signer))
+				logger.Logger.Debug(fmt.Sprintf("Successfully parsed private key from %s", keySource))
+			}
+		}
+	}
+
+	// 如果提供了密码，添加密码认证（作为备选）
+	if pwd != "" {
+		authMethods = append(authMethods, gossh.Password(pwd))
+		logger.Logger.Debug("Added password authentication method")
+	}
+
+	// 如果没有任何认证方法，返回详细的错误信息
+	if len(authMethods) == 0 {
+		var keyInfo string
+		if key != "" {
+			keyInfo = fmt.Sprintf("key provided but failed to parse (length: %d)", len(key))
+		} else {
+			keyInfo = "no key provided"
+		}
+		var pwdInfo string
+		if pwd != "" {
+			pwdInfo = "password provided"
+		} else {
+			pwdInfo = "no password provided"
+		}
+		return nil, fmt.Errorf("no authentication method available (%s, %s)", keyInfo, pwdInfo)
+	}
+
+	// 设置用户名（如果未提供，使用默认值）
+	if sshUser == "" {
+		sshUser = "root"
 	}
 
 	configs := &gossh.ClientConfig{
-		User: "root",
-		Auth: []gossh.AuthMethod{
-			gossh.PublicKeys(signer),
-		},
+		User:            sshUser,
+		Auth:            authMethods,
 		HostKeyCallback: gossh.HostKeyCallback(func(hostname string, remote net.Addr, key gossh.PublicKey) error { return nil }),
 	}
 

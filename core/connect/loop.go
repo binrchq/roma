@@ -22,6 +22,8 @@ import (
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/sshd"
 	"binrc.com/roma/core/types"
+	"binrc.com/roma/core/utils"
+	"binrc.com/roma/core/utils/logger"
 	"github.com/loganchef/ssh"
 )
 
@@ -102,8 +104,20 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection) e
 	// 并发测试所有连接（只测试连通性，不建立 Terminal）
 	for _, conn := range sshConnections {
 		go func(c *types.Connection) {
-			// 测试 SSH 连接是否能建立
-			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, "linux")
+			// 解密密码（如果存在）
+			password := c.Password
+			if password != "" {
+				decryptedPassword, err := utils.DecryptPassword(password)
+				if err != nil {
+					logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", c.Host, c.Port, err))
+					// 如果解密失败，尝试使用原始密码（可能是未加密的）
+					password = c.Password
+				} else {
+					password = decryptedPassword
+				}
+			}
+			// 测试 SSH 连接是否能建立（支持私钥和密码认证）
+			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, "linux", password)
 			if client != nil {
 				client.Close() // 立即关闭测试连接
 			}
@@ -131,7 +145,19 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection) e
 
 	// 使用成功的连接建立 Terminal
 	fmt.Fprintf(*sess, "[+] Connected to %s:%d\n", successConn.Host, successConn.Port)
-	return sshd.NewTerminal(sess, successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux")
+	// 解密密码（如果存在）
+	password := successConn.Password
+	if password != "" {
+		decryptedPassword, err := utils.DecryptPassword(password)
+		if err != nil {
+			logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", successConn.Host, successConn.Port, err))
+			// 如果解密失败，尝试使用原始密码（可能是未加密的）
+			password = successConn.Password
+		} else {
+			password = decryptedPassword
+		}
+	}
+	return sshd.NewTerminal(sess, successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux", password)
 }
 
 // handleDockerConnection 处理 Docker 容器连接（直接 SSH 到容器）
@@ -378,7 +404,19 @@ func handleSSHCommand(sess *ssh.Session, connections []*types.Connection, resMod
 
 	// 尝试第一个连接
 	successConn := sshConnections[0]
-	client, err := sshd.NewSSHClient(successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux")
+	// 解密密码（如果存在）
+	password := successConn.Password
+	if password != "" {
+		decryptedPassword, err := utils.DecryptPassword(password)
+		if err != nil {
+			logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", successConn.Host, successConn.Port, err))
+			// 如果解密失败，尝试使用原始密码（可能是未加密的）
+			password = successConn.Password
+		} else {
+			password = decryptedPassword
+		}
+	}
+	client, err := sshd.NewSSHClient(successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux", password)
 	if err != nil {
 		if highRisk {
 			recordTUICommandAuditLog(username, command, resType, resourceID, resourceName, ipAddress, "failed", fmt.Sprintf("连接失败: %v", err))

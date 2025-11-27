@@ -11,7 +11,8 @@ import (
 
 // DockerConnector Docker 连接器（通过 SSH 到宿主机管理容器）
 // 注意：跳板机场景下，直接 SSH 到容器内部（通过 loop.go）
-//       MCP/API 场景下，SSH 到宿主机执行 docker 命令
+//
+//	MCP/API 场景下，SSH 到宿主机执行 docker 命令
 type DockerConnector struct {
 	Config    *model.DockerConfig
 	SSHClient *gossh.Client
@@ -35,19 +36,21 @@ func (d *DockerConnector) Connect() error {
 
 	// 宿主机 SSH 端口（默认 22，不是容器映射的端口）
 	port := 22
-	
+
 	// 注意：这里需要宿主机的 SSH 认证信息
 	// 当前模型中使用的是容器的认证信息
 	// 实际生产环境可能需要分别存储宿主机和容器的认证信息
 	config := &gossh.ClientConfig{
-		User: d.Config.Username, // 宿主机用户
-		Auth: []gossh.AuthMethod{},
+		User:            d.Config.Username, // 宿主机用户
+		Auth:            []gossh.AuthMethod{},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	}
 
 	// 优先使用私钥
 	if d.Config.PrivateKey != "" {
-		signer, err := gossh.ParsePrivateKey([]byte(d.Config.PrivateKey))
+		// 处理转义的换行符：将字符串 "\n" 转换为实际的换行符
+		privateKey := strings.ReplaceAll(strings.TrimSpace(d.Config.PrivateKey), "\\n", "\n")
+		signer, err := gossh.ParsePrivateKey([]byte(privateKey))
 		if err == nil {
 			config.Auth = append(config.Auth, gossh.PublicKeys(signer))
 		}
@@ -165,12 +168,12 @@ func (d *DockerConnector) GetConnectionInfo() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"type":           "docker",
-		"container_name": d.Config.ContainerName,
-		"host":           host,
-		"port":           d.Config.Port,
-		"username":       d.Config.Username,
-		"ssh_command":    fmt.Sprintf("ssh %s@%s -p %d", d.Config.Username, host, d.Config.Port),
+		"type":            "docker",
+		"container_name":  d.Config.ContainerName,
+		"host":            host,
+		"port":            d.Config.Port,
+		"username":        d.Config.Username,
+		"ssh_command":     fmt.Sprintf("ssh %s@%s -p %d", d.Config.Username, host, d.Config.Port),
 		"common_commands": strings.Join(commands, "\n"),
 	}
 }
@@ -182,4 +185,3 @@ func (d *DockerConnector) Close() error {
 	}
 	return nil
 }
-

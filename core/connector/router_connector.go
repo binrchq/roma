@@ -103,13 +103,15 @@ func (r *RouterConnector) ConnectSSH() error {
 	}
 
 	config := &gossh.ClientConfig{
-		User: r.Config.Username,
-		Auth: []gossh.AuthMethod{},
+		User:            r.Config.Username,
+		Auth:            []gossh.AuthMethod{},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	}
 
 	if r.Config.PrivateKey != "" {
-		signer, err := gossh.ParsePrivateKey([]byte(r.Config.PrivateKey))
+		// 处理转义的换行符：将字符串 "\n" 转换为实际的换行符
+		privateKey := strings.ReplaceAll(strings.TrimSpace(r.Config.PrivateKey), "\\n", "\n")
+		signer, err := gossh.ParsePrivateKey([]byte(privateKey))
 		if err == nil {
 			config.Auth = append(config.Auth, gossh.PublicKeys(signer))
 		}
@@ -234,5 +236,3 @@ func (r *RouterConnector) Close() error {
 	}
 	return nil
 }
-
-

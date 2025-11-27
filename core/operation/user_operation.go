@@ -2,9 +2,11 @@ package operation
 
 import (
 	"errors"
+	"fmt"
 
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/utils"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
@@ -99,8 +101,36 @@ func (u *UserOperation) GetUserRolesByUsername(username string) ([]*model.Role, 
 	return roles, nil
 }
 
+// UpdateUser 更新用户信息
+// 如果密码为空，则不更新密码字段
 func (u *UserOperation) UpdateUser(user *model.User) (*model.User, error) {
-	if err := u.DB.Save(user).Error; err != nil {
+	// 获取现有用户信息
+	existingUser := &model.User{}
+	if err := u.DB.First(existingUser, user.ID).Error; err != nil {
+		return nil, err
+	}
+
+	// 如果密码为空，则不更新密码字段
+	if user.Password == "" {
+		// 使用 Select 指定要更新的字段，排除密码字段
+		if err := u.DB.Model(user).Select("username", "name", "nickname", "email", "public_key", "updated_at").Updates(user).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		// 如果提供了密码，需要加密后再更新
+		hashedPassword, err := utils.HashPassword(user.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		user.Password = hashedPassword
+		// 更新包括密码在内的所有字段
+		if err := u.DB.Model(user).Select("username", "name", "nickname", "email", "public_key", "password", "updated_at").Updates(user).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	// 重新加载用户信息以返回最新数据
+	if err := u.DB.Preload("Roles").First(user, user.ID).Error; err != nil {
 		return nil, err
 	}
 	return user, nil

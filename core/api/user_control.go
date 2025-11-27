@@ -5,11 +5,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
 	"binrc.com/roma/core/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/loganchef/ssh"
 )
 
 // maskKey 掩码密钥，只显示头尾各20个字符
@@ -83,13 +85,26 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 		return
 	}
 
+	// 标准化公钥格式（如果提供了公钥）
+	publicKey := strings.TrimSpace(req.PublicKey)
+	if publicKey != "" {
+		// 验证公钥格式
+		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+		if err != nil {
+			utilG.Response(http.StatusBadRequest, utils.ERROR, "公钥格式无效: "+err.Error())
+			return
+		}
+		// 保持原始格式，只去除前后空白
+		publicKey = strings.TrimSpace(publicKey)
+	}
+
 	// 创建新用户
 	newUser := &model.User{
 		Username:  req.Username,
 		Name:      req.Name,
 		Nickname:  req.Nickname,
 		Password:  hashedPassword,
-		PublicKey: req.PublicKey,
+		PublicKey: publicKey,
 		Email:     req.Email,
 		Roles:     roles, // 关联角色
 	}
