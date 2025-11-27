@@ -1,5 +1,9 @@
 # ROMA - AI-Powered Jump Server
 
+<div align="left">
+  <img src="./readme.res/logo.png" alt="ROMA Logo" width="100" />
+</div>
+
 ![Static Badge](https://img.shields.io/badge/License-AGPL_v3-blue)
 ![Static Badge](https://img.shields.io/badge/lightweight-green)
 ![Static Badge](https://img.shields.io/badge/AI-Powered-orange)
@@ -13,11 +17,6 @@
 Language: [中文](./README_CN.md)
 
 ---
-
-<div align="left">
-  <img src="./readme.res/logo.png" alt="ROMA Logo" width="100" />
-</div>
-
 ## 🚀 Try ROMA Now!
 
 ### Quick Start with Docker (< 2 minutes)
@@ -56,10 +55,12 @@ ROMA is a **jump server (bastion host)** that acts as a secure gateway to access
 
 - 🚀 **Jump Server** - Secure gateway for remote access
 - 🤖 **AI-Powered** - Native MCP support for AI-driven operations
+- 🧩 **Space Isolation** - Resources grouped by spaces for tenant-level isolation
 - 🔐 **Secure** - SSH key authentication, API key authorization
 - 📦 **Lightweight** - Single binary, minimal dependencies
 - 🌐 **Multi-Resource** - Support 6 types of resources
 - 💻 **Web UI** - Modern React-based management interface
+- 🛡️ **Adaptive Security** - Rate limiting, IP blacklist, auth-failure guardrails
 - 🔌 **MCP Bridge** - Lightweight MCP bridge for AI integration
 
 ---
@@ -343,6 +344,43 @@ The AI will automatically:
 2. Execute commands/queries
 3. Present results in a readable format
 4. Handle errors and retry with correct resource names
+
+---
+
+## 🧩 Space Isolation & Flexible RBAC
+
+Spaces (formerly “projects”) let you organize resources, users, and audit data into isolated tenants:
+
+- **Default Space** – A pre-seeded `default` space keeps legacy deployments working instantly.
+- **Per-Space Membership** – Users must join a space *and* own the required roles to access its resources.
+- **Resource Binding** – Every resource belongs to exactly one space. Super/system roles can reassign spaces via API or Web UI.
+- **Resource Roles** – Attach roles directly to resources (e.g. “ops”, “db-admin”) for fine-grained approval flows.
+- **Front-end Controls** – All resource editors display a space picker and filters so operators always know the scope they are touching.
+
+With spaces you can host multiple business units or environments inside a single ROMA cluster while retaining strict isolation.
+
+---
+
+## 🛡️ Security Hardening Highlights
+
+ROMA now ships with a multi-layer defense stack out of the box:
+
+1. **API Safeguards**
+   - Global IP blacklist persisted in the database (with ipseek.cc metadata lookup).
+   - Rate limiter middleware (per-IP concurrent and QPS limits).
+   - Authentication failure tracker that escalates from warnings to automatic bans.
+2. **SSH Gateway Protection**
+   - Connection throttling + per-IP concurrency guard.
+   - Shared IP blacklist between API and SSH layers for unified operations.
+   - Structured logging for every allow/deny decision (debug-friendly).
+3. **Credential Safety**
+   - Bcrypt for user passwords, AES-256-GCM for resource credentials.
+   - Config-driven encryption keys + JWT secrets (exposed via `config.ex.toml`, Kubernetes manifests, Drone secrets).
+4. **Frontend Tooling**
+   - Dedicated “IP Blacklist” page with search, add/remove, and geo lookup.
+   - Visual cues for access decisions, space assignments, and audit trails.
+
+These controls make ROMA ready for Internet-facing deployments and protect against DDoS spikes, credential stuffing, and brute-force attacks.
 
 ---
 
