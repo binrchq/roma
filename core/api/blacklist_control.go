@@ -157,6 +157,12 @@ func (bc *BlacklistController) AddToBlacklist(c *gin.Context) {
 		return
 	}
 	
+	// 检查是否为内网IP，不允许封禁内网IP
+	if utils.IsPrivateIP(req.IP) {
+		utilG.Response(http.StatusBadRequest, utils.ERROR, "不允许封禁内网IP地址")
+		return
+	}
+	
 	// 获取IP信息
 	ipInfo, err := middleware.GetIPInfoParsed(req.IP)
 	if err != nil {

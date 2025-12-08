@@ -12,11 +12,11 @@ import (
 
 // AuthFailureTracker 认证失败追踪器
 type AuthFailureTracker struct {
-	// IP -> 失败次数
+	// 标识符（浏览器指纹或IP） -> 失败次数
 	failureCount map[string]int
-	// IP -> 最后失败时间
+	// 标识符 -> 最后失败时间
 	lastFailureTime map[string]time.Time
-	// IP -> 封禁到期时间
+	// 标识符 -> 封禁到期时间
 	banUntil map[string]time.Time
 	// 互斥锁
 	mu sync.RWMutex
@@ -79,12 +79,17 @@ func (aft *AuthFailureTracker) cleanup() {
 }
 
 // RecordFailure 记录认证失败
-// 输入: ip - IP地址
-// 输出: bool - 是否应该封禁该IP
+// 输入: identifier - 标识符（浏览器指纹或IP地址）
+// 输出: bool - 是否应该封禁；time.Time - 解封时间（如果被封禁）
 // 必要性: 记录认证失败，达到阈值后自动封禁
-func (aft *AuthFailureTracker) RecordFailure(ip string) bool {
+func (aft *AuthFailureTracker) RecordFailure(identifier string) (bool, time.Time) {
 	if aft == nil {
-		return false
+		return false, time.Time{}
+	}
+
+	// 如果identifier是IP地址，跳过内网IP
+	if utils.IsPrivateIP(identifier) {
+		return false, time.Time{}
 	}
 
 	aft.mu.Lock()
@@ -93,30 +98,30 @@ func (aft *AuthFailureTracker) RecordFailure(ip string) bool {
 	now := time.Now()
 
 	// 检查是否在封禁期内
-	if banTime, exists := aft.banUntil[ip]; exists && now.Before(banTime) {
-		return true
+	if banTime, exists := aft.banUntil[identifier]; exists && now.Before(banTime) {
+		return true, banTime
 	}
 
 	// 检查失败计数窗口
-	lastTime, exists := aft.lastFailureTime[ip]
+	lastTime, exists := aft.lastFailureTime[identifier]
 	if !exists || now.Sub(lastTime) > aft.failureWindow {
 		// 重置计数
-		aft.failureCount[ip] = 1
-		aft.lastFailureTime[ip] = now
-		return false
+		aft.failureCount[identifier] = 1
+		aft.lastFailureTime[identifier] = now
+		return false, time.Time{}
 	}
 
 	// 增加失败计数
-	aft.failureCount[ip]++
-	aft.lastFailureTime[ip] = now
+	aft.failureCount[identifier]++
+	aft.lastFailureTime[identifier] = now
 
 	// 检查是否达到封禁阈值
-	if aft.failureCount[ip] >= aft.maxFailures {
+	if aft.failureCount[identifier] >= aft.maxFailures {
 		// 计算封禁时长（指数退避）
 		banDuration := aft.banDuration
 		if aft.exponentialBackoff {
 			// 指数退避：1次封禁15分钟，2次30分钟，3次1小时，4次2小时...
-			banCount := (aft.failureCount[ip] - aft.maxFailures) / aft.maxFailures
+			banCount := (aft.failureCount[identifier] - aft.maxFailures) / aft.maxFailures
 			for i := 0; i < banCount; i++ {
 				banDuration *= 2
 			}
@@ -126,18 +131,19 @@ func (aft *AuthFailureTracker) RecordFailure(ip string) bool {
 			}
 		}
 
-		aft.banUntil[ip] = now.Add(banDuration)
-		return true
+		banTime := now.Add(banDuration)
+		aft.banUntil[identifier] = banTime
+		return true, banTime
 	}
 
-	return false
+	return false, time.Time{}
 }
 
 // RecordSuccess 记录认证成功
-// 输入: ip - IP地址
+// 输入: identifier - 标识符（浏览器指纹或IP地址）
 // 输出: 无
 // 必要性: 认证成功时清除失败计数
-func (aft *AuthFailureTracker) RecordSuccess(ip string) {
+func (aft *AuthFailureTracker) RecordSuccess(identifier string) {
 	if aft == nil {
 		return
 	}
@@ -145,16 +151,16 @@ func (aft *AuthFailureTracker) RecordSuccess(ip string) {
 	aft.mu.Lock()
 	defer aft.mu.Unlock()
 
-	delete(aft.failureCount, ip)
-	delete(aft.lastFailureTime, ip)
-	delete(aft.banUntil, ip)
+	delete(aft.failureCount, identifier)
+	delete(aft.lastFailureTime, identifier)
+	delete(aft.banUntil, identifier)
 }
 
-// IsBanned 检查IP是否被封禁
-// 输入: ip - IP地址
+// IsBanned 检查标识符是否被封禁
+// 输入: identifier - 标识符（浏览器指纹或IP地址）
 // 输出: bool - 是否被封禁；time.Time - 解封时间（如果被封禁）
-// 必要性: 检查IP是否在封禁期内
-func (aft *AuthFailureTracker) IsBanned(ip string) (bool, time.Time) {
+// 必要性: 检查标识符是否在封禁期内
+func (aft *AuthFailureTracker) IsBanned(identifier string) (bool, time.Time) {
 	if aft == nil {
 		return false, time.Time{}
 	}
@@ -162,15 +168,34 @@ func (aft *AuthFailureTracker) IsBanned(ip string) (bool, time.Time) {
 	aft.mu.RLock()
 	defer aft.mu.RUnlock()
 
-	if banTime, exists := aft.banUntil[ip]; exists && time.Now().Before(banTime) {
+	if banTime, exists := aft.banUntil[identifier]; exists && time.Now().Before(banTime) {
 		return true, banTime
 	}
 
 	return false, time.Time{}
 }
 
+// getIdentifier 获取客户端标识符（优先使用浏览器指纹，否则使用IP）
+func getIdentifier(c *gin.Context) string {
+	// 优先使用浏览器指纹
+	fingerprint := c.GetHeader("X-Browser-Fingerprint")
+	if fingerprint != "" {
+		return fingerprint
+	}
+
+	// 如果没有浏览器指纹，使用IP作为后备
+	ip := c.ClientIP()
+	if ip == "" {
+		ip = c.GetHeader("X-Forwarded-For")
+	}
+	if ip == "" {
+		ip = c.GetHeader("X-Real-IP")
+	}
+	return ip
+}
+
 // AuthFailureMiddleware 认证失败处理中间件
-// 用途: 记录认证失败，自动封禁恶意IP
+// 用途: 记录认证失败，自动封禁恶意客户端（基于浏览器指纹或IP）
 // 输入: c - Gin上下文
 // 输出: 无
 // 必要性: 防止暴力破解攻击
@@ -182,20 +207,14 @@ func AuthFailureMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		ip := c.ClientIP()
-		if ip == "" {
-			ip = c.GetHeader("X-Forwarded-For")
-		}
-		if ip == "" {
-			ip = c.GetHeader("X-Real-IP")
-		}
+		identifier := getIdentifier(c)
 
 		// 检查是否被封禁
-		banned, unbanTime := globalAuthFailureTracker.IsBanned(ip)
+		banned, unbanTime := globalAuthFailureTracker.IsBanned(identifier)
 		if banned {
 			utilG := utils.Gin{C: c}
 			utilG.Response(http.StatusTooManyRequests, utils.ERROR,
-				fmt.Sprintf("IP temporarily banned due to too many failed login attempts. Unban time: %s", unbanTime.Format("2006-01-02 15:04:05")))
+				fmt.Sprintf("Too many failed login attempts. Unban time: %s", unbanTime.Format("2006-01-02 15:04:05")))
 			c.Abort()
 			return
 		}
@@ -204,15 +223,28 @@ func AuthFailureMiddleware() gin.HandlerFunc {
 
 		// 检查响应状态码，记录认证失败
 		if c.Writer.Status() == http.StatusUnauthorized || c.Writer.Status() == http.StatusForbidden {
-			shouldBan := globalAuthFailureTracker.RecordFailure(ip)
+			shouldBan, banTime := globalAuthFailureTracker.RecordFailure(identifier)
 			if shouldBan {
-				// 自动添加到黑名单（保存到数据库）
-				reason := fmt.Sprintf("Too many failed login attempts (banned after %d failures)", globalAuthFailureTracker.maxFailures)
-				AddToBlacklist(ip, globalAuthFailureTracker.banDuration, reason, "api_auth_failure")
+				// 如果identifier是IP地址，添加到黑名单（保存到数据库）
+				// 浏览器指纹不添加到IP黑名单，只在内存中封禁
+				if !utils.IsPrivateIP(identifier) {
+					reason := fmt.Sprintf("Too many failed login attempts (banned after %d failures)", globalAuthFailureTracker.maxFailures)
+					AddToBlacklist(identifier, globalAuthFailureTracker.banDuration, reason, "api_auth_failure")
+				}
+
+				// 如果响应还未发送，返回包含解封时间的错误信息
+				if !c.Writer.Written() {
+					utilG := utils.Gin{C: c}
+					utilG.Response(http.StatusInternalServerError, utils.ERROR,
+						fmt.Sprintf("Too many failed login attempts (banned after %d failures). Unban time: %s",
+							globalAuthFailureTracker.maxFailures, banTime.Format("2006-01-02 15:04:05")))
+					c.Abort()
+					return
+				}
 			}
 		} else if c.Writer.Status() == http.StatusOK {
 			// 认证成功，清除失败记录
-			globalAuthFailureTracker.RecordSuccess(ip)
+			globalAuthFailureTracker.RecordSuccess(identifier)
 		}
 	}
 }

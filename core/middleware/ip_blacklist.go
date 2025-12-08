@@ -38,6 +38,11 @@ func AddToBlacklist(ip string, duration time.Duration, reason, source string) er
 		return nil
 	}
 
+	// 跳过内网IP，不封禁内网地址
+	if utils.IsPrivateIP(ip) {
+		return nil
+	}
+
 	blacklist := &model.Blacklist{
 		IP:     ip,
 		Reason: reason,

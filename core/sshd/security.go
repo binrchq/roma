@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"binrc.com/roma/core/operation"
+	"binrc.com/roma/core/utils"
 	"binrc.com/roma/core/utils/logger"
 	"github.com/loganchef/ssh"
 )
@@ -216,6 +217,10 @@ func (sm *SSHSecurityManager) ReleaseConnection(ip string) {
 // 必要性: 记录认证失败，达到阈值后自动封禁
 func (sm *SSHSecurityManager) RecordAuthFailure(ip string) bool {
 	if sm == nil {
+		return false
+	}
+	// 跳过内网IP，不封禁内网地址
+	if utils.IsPrivateIP(ip) {
 		return false
 	}
 
