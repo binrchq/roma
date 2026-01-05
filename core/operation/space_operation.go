@@ -1,6 +1,8 @@
 package operation
 
 import (
+	"fmt"
+
 	"binrc.com/roma/core/global"
 	"binrc.com/roma/core/model"
 	"gorm.io/gorm"
@@ -95,9 +97,16 @@ func (s *SpaceOperation) AssignResourceToSpace(spaceID uint, resourceID int64, r
 // GetResourceSpace 获取资源所属的空间
 func (s *SpaceOperation) GetResourceSpace(resourceID int64, resourceType string) (*model.ResourceSpace, error) {
 	var rs model.ResourceSpace
-	if err := s.DB.Where("resource_id = ? AND resource_type = ?", resourceID, resourceType).
-		Preload("Space").First(&rs).Error; err != nil {
-		return nil, err
+	err := s.DB.Where("resource_id = ? AND resource_type = ?", resourceID, resourceType).
+		Preload("Space").First(&rs).Error
+	if err != nil {
+		// 记录详细的查询信息用于调试
+		if err == gorm.ErrRecordNotFound {
+			// 这是正常的，资源可能没有关联空间
+			return nil, err
+		}
+		// 其他错误需要记录
+		return nil, fmt.Errorf("query resource_space failed: resource_id=%d, resource_type=%s, error=%v", resourceID, resourceType, err)
 	}
 	return &rs, nil
 }

@@ -82,61 +82,61 @@ func (op *PassportOperation) GetPassportForResource(resourceType string, spaceID
 	} else {
 		roleIDVal = "nil"
 	}
-	logger.Logger.Debug(fmt.Sprintf("GetPassportForResource: resourceType=%s, spaceID=%v, roleID=%v", resourceType, spaceIDVal, roleIDVal))
+	logger.Logger.Info(fmt.Sprintf("GetPassportForResource: resourceType=%s, spaceID=%v, roleID=%v", resourceType, spaceIDVal, roleIDVal))
 
 	// 优先级1: 同时匹配 space_id 和 role_id（最精确匹配）
 	if spaceID != nil && roleID != nil {
-		logger.Logger.Debug(fmt.Sprintf("Priority 1: Searching for resource_type=%s, space_id=%d, role_id=%d", resourceType, *spaceID, *roleID))
+		logger.Logger.Info(fmt.Sprintf("Priority 1: Searching for resource_type=%s, space_id=%d, role_id=%d", resourceType, *spaceID, *roleID))
 		if err := op.DB.Where("resource_type = ? AND space_id = ? AND role_id = ?", resourceType, *spaceID, *roleID).
 			First(&passport).Error; err == nil {
-			logger.Logger.Debug(fmt.Sprintf("Priority 1: Found passport ID=%d", passport.ID))
+			logger.Logger.Info(fmt.Sprintf("Priority 1: Found passport ID=%d", passport.ID))
 			return &passport, nil
 		} else if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		logger.Logger.Debug("Priority 1: Not found, trying next priority")
+		logger.Logger.Info("Priority 1: Not found, trying next priority")
 		// 如果找不到，继续尝试优先级2、3、4
 	}
 
 	// 优先级2: 匹配 space_id（role_id为空）
 	if spaceID != nil {
-		logger.Logger.Debug(fmt.Sprintf("Priority 2: Searching for resource_type=%s, space_id=%d, role_id IS NULL", resourceType, *spaceID))
+		logger.Logger.Info(fmt.Sprintf("Priority 2: Searching for resource_type=%s, space_id=%d, role_id IS NULL", resourceType, *spaceID))
 		if err := op.DB.Where("resource_type = ? AND space_id = ? AND role_id IS NULL", resourceType, *spaceID).
 			First(&passport).Error; err == nil {
-			logger.Logger.Debug(fmt.Sprintf("Priority 2: Found passport ID=%d", passport.ID))
+			logger.Logger.Info(fmt.Sprintf("Priority 2: Found passport ID=%d", passport.ID))
 			return &passport, nil
 		} else if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		logger.Logger.Debug("Priority 2: Not found, trying next priority")
+		logger.Logger.Info("Priority 2: Not found, trying next priority")
 		// 如果找不到，继续尝试优先级3、4
 	}
 
 	// 优先级3: 匹配 role_id（space_id为空）
 	if roleID != nil {
-		logger.Logger.Debug(fmt.Sprintf("Priority 3: Searching for resource_type=%s, space_id IS NULL, role_id=%d", resourceType, *roleID))
+		logger.Logger.Info(fmt.Sprintf("Priority 3: Searching for resource_type=%s, space_id IS NULL, role_id=%d", resourceType, *roleID))
 		if err := op.DB.Where("resource_type = ? AND space_id IS NULL AND role_id = ?", resourceType, *roleID).
 			First(&passport).Error; err == nil {
-			logger.Logger.Debug(fmt.Sprintf("Priority 3: Found passport ID=%d", passport.ID))
+			logger.Logger.Info(fmt.Sprintf("Priority 3: Found passport ID=%d", passport.ID))
 			return &passport, nil
 		} else if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		logger.Logger.Debug("Priority 3: Not found, trying next priority")
+		logger.Logger.Info("Priority 3: Not found, trying next priority")
 		// 如果找不到，继续尝试优先级4
 	}
 
 	// 优先级4: 通用Passport（space_id和role_id都为空，作为最后回退）
 	// 即使资源有 spaceID 或 roleID，如果找不到对应的Passport，也会回退到通用Passport
-	logger.Logger.Debug(fmt.Sprintf("Priority 4: Searching for resource_type=%s, space_id IS NULL, role_id IS NULL", resourceType))
+	logger.Logger.Info(fmt.Sprintf("Priority 4: Searching for resource_type=%s, space_id IS NULL, role_id IS NULL", resourceType))
 	if err := op.DB.Where("resource_type = ? AND space_id IS NULL AND role_id IS NULL", resourceType).
 		First(&passport).Error; err == nil {
-		logger.Logger.Debug(fmt.Sprintf("Priority 4: Found passport ID=%d", passport.ID))
+		logger.Logger.Info(fmt.Sprintf("Priority 4: Found passport ID=%d", passport.ID))
 		return &passport, nil
 	} else if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
-	logger.Logger.Debug("Priority 4: Not found, no passport available")
+	logger.Logger.Info("Priority 4: Not found, no passport available")
 
 	// 没有找到匹配的Passport
 	return nil, nil

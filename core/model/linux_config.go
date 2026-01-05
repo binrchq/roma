@@ -34,7 +34,6 @@ func (r *LinuxConfig) GetResource() Resource {
 func (l *LinuxConfig) GetConnect() []*types.Connection {
 	connection := []*types.Connection{}
 	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Pub, l.Port, l.Username, l.Password, l.PrivateKey))
-	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Pub, l.PortActual, l.Username, l.Password, l.PrivateKey))
 	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv4Priv, l.PortActual, l.Username, l.Password, l.PrivateKey))
 	connection = append(connection, types.NewConnection(constants.ConnectSSH, l.IPv6, l.PortIPv6, l.Username, l.Password, l.PrivateKey))
 	return connection

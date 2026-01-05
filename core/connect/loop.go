@@ -26,6 +26,7 @@ import (
 	"binrc.com/roma/core/utils"
 	"binrc.com/roma/core/utils/logger"
 	"github.com/loganchef/ssh"
+	"gorm.io/gorm"
 )
 
 // NewConnectionWithCommand 非交互式执行命令
@@ -74,6 +75,55 @@ func NewConnectionLoop(sess *ssh.Session, resModel model.Resource, resType strin
 	}
 }
 
+// decryptPassword 解密密码，如果解密失败则返回原始密码
+func decryptPassword(encryptedPassword string) string {
+	if encryptedPassword == "" {
+		return ""
+	}
+	decrypted, err := utils.DecryptPassword(encryptedPassword)
+	if err != nil {
+		// 解密失败，可能是未加密的，返回原始密码
+		return encryptedPassword
+	}
+	return decrypted
+}
+
+// getResourceSpaceAndRole 获取资源的空间ID和角色ID
+func getResourceSpaceAndRole(resModel model.Resource, resType string) (spaceID *uint, roleID *uint) {
+	resourceID := resModel.GetID()
+	opSpace := operation.NewSpaceOperation()
+	opResourceRole := operation.NewResourceRoleOperation()
+
+	// 获取资源的空间信息
+	logger.Logger.Info(fmt.Sprintf("Getting space and role for resource ID=%d, type=%s, name=%s", resourceID, resType, resModel.GetName()))
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(resourceID, resType)
+	if spaceErr == nil && resourceSpace != nil {
+		spaceID = &resourceSpace.SpaceID
+		logger.Logger.Info(fmt.Sprintf("✓ Resource %d (type: %s, name: %s) belongs to space_id=%d", resourceID, resType, resModel.GetName(), *spaceID))
+	} else if spaceErr != nil {
+		if spaceErr == gorm.ErrRecordNotFound {
+			logger.Logger.Info(fmt.Sprintf("Resource %d (type: %s, name: %s) has no space (not found in resource_spaces table)", resourceID, resType, resModel.GetName()))
+		} else {
+			logger.Logger.Warning(fmt.Sprintf("✗ Failed to get resource space for resource %d (type: %s, name: %s): %v", resourceID, resType, resModel.GetName(), spaceErr))
+		}
+	} else {
+		logger.Logger.Info(fmt.Sprintf("Resource %d (type: %s, name: %s) has no space (resourceSpace is nil)", resourceID, resType, resModel.GetName()))
+	}
+
+	// 获取资源的角色信息（使用第一个角色）
+	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resourceID, resType)
+	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
+		roleID = &resourceRoles[0].RoleID
+		logger.Logger.Info(fmt.Sprintf("✓ Resource %d (type: %s, name: %s) has role_id=%d (total roles: %d)", resourceID, resType, resModel.GetName(), *roleID, len(resourceRoles)))
+	} else if roleErr != nil {
+		logger.Logger.Warning(fmt.Sprintf("✗ Failed to get resource roles for resource %d (type: %s, name: %s): %v", resourceID, resType, resModel.GetName(), roleErr))
+	} else {
+		logger.Logger.Info(fmt.Sprintf("Resource %d (type: %s, name: %s) has no roles (len=%d)", resourceID, resType, resModel.GetName(), len(resourceRoles)))
+	}
+
+	return spaceID, roleID
+}
+
 // handleLinuxConnection 处理 Linux 服务器连接（标准 SSH）
 func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, resModel model.Resource, resType string) error {
 	// 收集所有 SSH 连接配置
@@ -88,6 +138,9 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, r
 		return errors.New("没有可用的 SSH 连接配置")
 	}
 
+	// 提前获取资源的空间和角色信息，用于所有连接的测试
+	spaceID, roleID := getResourceSpaceAndRole(resModel, resType)
+
 	// 显示连接提示
 	if len(sshConnections) == 1 {
 		fmt.Fprintf(*sess, "[*] Connecting to %s:%d ...\n", sshConnections[0].Host, sshConnections[0].Port)
@@ -95,35 +148,28 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, r
 		fmt.Fprintf(*sess, "[*] Trying %d addresses ...\n", len(sshConnections))
 	}
 
-	// 使用 channel 来接收第一个成功的连接
-	type result struct {
+	// 并发测试所有连接，找到第一个可用的（支持组合连接场景）
+	type connResult struct {
 		conn *types.Connection
 		err  error
 	}
-	resultCh := make(chan result, len(sshConnections))
+	resultCh := make(chan connResult, len(sshConnections))
 
-	// 并发测试所有连接（只测试连通性，不建立 Terminal）
+	// 并发测试所有连接
 	for _, conn := range sshConnections {
 		go func(c *types.Connection) {
-			// 解密密码（如果存在）
-			password := c.Password
-			if password != "" {
-				decryptedPassword, err := utils.DecryptPassword(password)
-				if err != nil {
-					logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", c.Host, c.Port, err))
-					// 如果解密失败，尝试使用原始密码（可能是未加密的）
-					password = c.Password
-				} else {
-					password = decryptedPassword
-				}
+			password := decryptPassword(c.Password)
+			opts := sshd.SSHClientOptions{
+				Password: password,
+				SpaceID:  spaceID,
+				RoleID:   roleID,
 			}
-			// 测试 SSH 连接是否能建立（支持私钥和密码认证）
-			opts := sshd.SSHClientOptions{Password: password}
-			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, "linux", opts)
+			// 测试连接（只建立连接，不创建Terminal）
+			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, resType, opts)
 			if client != nil {
 				client.Close() // 立即关闭测试连接
 			}
-			resultCh <- result{conn: c, err: err}
+			resultCh <- connResult{conn: c, err: err}
 		}(conn)
 	}
 
@@ -133,62 +179,22 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, r
 	for i := 0; i < len(sshConnections); i++ {
 		res := <-resultCh
 		if res.err == nil && successConn == nil {
-			// 找到第一个成功的连接
 			successConn = res.conn
 			break
 		}
-		lastErr = res.err
+		if res.err != nil {
+			lastErr = res.err
+		}
 	}
 
 	if successConn == nil {
-		// 所有连接都失败
 		return fmt.Errorf("[-] Connection failed: %v", lastErr)
 	}
 
 	// 使用成功的连接建立 Terminal
 	fmt.Fprintf(*sess, "[+] Connected to %s:%d\n", successConn.Host, successConn.Port)
-	// 解密密码（如果存在）
-	password := successConn.Password
-	if password != "" {
-		decryptedPassword, err := utils.DecryptPassword(password)
-		if err != nil {
-			logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", successConn.Host, successConn.Port, err))
-			// 如果解密失败，尝试使用原始密码（可能是未加密的）
-			password = successConn.Password
-		} else {
-			password = decryptedPassword
-		}
-	}
 
-	// 获取资源的空间和角色信息，用于优先匹配Passport
-	var spaceID *uint
-	var roleID *uint
-	opSpace := operation.NewSpaceOperation()
-	opResourceRole := operation.NewResourceRoleOperation()
-
-	// 获取资源的空间信息
-	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
-	if spaceErr == nil && resourceSpace != nil {
-		spaceID = &resourceSpace.SpaceID
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) belongs to space_id=%d", resModel.GetID(), resType, *spaceID))
-	} else if spaceErr != nil {
-		logger.Logger.Debug(fmt.Sprintf("Failed to get resource space for resource %d (type: %s): %v", resModel.GetID(), resType, spaceErr))
-	} else {
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no space", resModel.GetID(), resType))
-	}
-
-	// 获取资源的角色信息（使用第一个角色）
-	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
-	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
-		roleID = &resourceRoles[0].RoleID
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has role_id=%d", resModel.GetID(), resType, *roleID))
-	} else if roleErr != nil {
-		logger.Logger.Debug(fmt.Sprintf("Failed to get resource roles for resource %d (type: %s): %v", resModel.GetID(), resType, roleErr))
-	} else {
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no roles", resModel.GetID(), resType))
-	}
-
-	// 传入空间和角色信息，优先匹配对应的Passport
+	password := decryptPassword(successConn.Password)
 	opts := sshd.SSHClientOptions{
 		Password: password,
 		SpaceID:  spaceID,
@@ -441,46 +447,10 @@ func handleSSHCommand(sess *ssh.Session, connections []*types.Connection, resMod
 
 	// 尝试第一个连接
 	successConn := sshConnections[0]
-	// 解密密码（如果存在）
-	password := successConn.Password
-	if password != "" {
-		decryptedPassword, err := utils.DecryptPassword(password)
-		if err != nil {
-			logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password for %s:%d: %v", successConn.Host, successConn.Port, err))
-			// 如果解密失败，尝试使用原始密码（可能是未加密的）
-			password = successConn.Password
-		} else {
-			password = decryptedPassword
-		}
-	}
+	password := decryptPassword(successConn.Password)
 
 	// 获取资源的空间和角色信息，用于优先匹配Passport
-	var spaceID *uint
-	var roleID *uint
-	opSpace := operation.NewSpaceOperation()
-	opResourceRole := operation.NewResourceRoleOperation()
-
-	// 获取资源的空间信息
-	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
-	if spaceErr == nil && resourceSpace != nil {
-		spaceID = &resourceSpace.SpaceID
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) belongs to space_id=%d", resModel.GetID(), resType, *spaceID))
-	} else if spaceErr != nil {
-		logger.Logger.Debug(fmt.Sprintf("Failed to get resource space for resource %d (type: %s): %v", resModel.GetID(), resType, spaceErr))
-	} else {
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no space", resModel.GetID(), resType))
-	}
-
-	// 获取资源的角色信息（使用第一个角色）
-	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
-	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
-		roleID = &resourceRoles[0].RoleID
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has role_id=%d", resModel.GetID(), resType, *roleID))
-	} else if roleErr != nil {
-		logger.Logger.Debug(fmt.Sprintf("Failed to get resource roles for resource %d (type: %s): %v", resModel.GetID(), resType, roleErr))
-	} else {
-		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no roles", resModel.GetID(), resType))
-	}
+	spaceID, roleID := getResourceSpaceAndRole(resModel, resType)
 
 	// 传入空间和角色信息，优先匹配对应的Passport
 	opts := sshd.SSHClientOptions{
@@ -514,6 +484,7 @@ func handleSSHCommand(sess *ssh.Session, connections []*types.Connection, resMod
 		if highRisk {
 			recordTUICommandAuditLog(username, command, resType, resourceID, resourceName, ipAddress, "failed", errMsg)
 		}
+
 		return nil, fmt.Errorf("%s, 输出: %s", errMsg, string(output))
 	}
 
