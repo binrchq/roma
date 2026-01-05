@@ -170,12 +170,22 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, r
 	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
 	if spaceErr == nil && resourceSpace != nil {
 		spaceID = &resourceSpace.SpaceID
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) belongs to space_id=%d", resModel.GetID(), resType, *spaceID))
+	} else if spaceErr != nil {
+		logger.Logger.Debug(fmt.Sprintf("Failed to get resource space for resource %d (type: %s): %v", resModel.GetID(), resType, spaceErr))
+	} else {
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no space", resModel.GetID(), resType))
 	}
 
 	// 获取资源的角色信息（使用第一个角色）
 	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
 	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
 		roleID = &resourceRoles[0].RoleID
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has role_id=%d", resModel.GetID(), resType, *roleID))
+	} else if roleErr != nil {
+		logger.Logger.Debug(fmt.Sprintf("Failed to get resource roles for resource %d (type: %s): %v", resModel.GetID(), resType, roleErr))
+	} else {
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no roles", resModel.GetID(), resType))
 	}
 
 	// 传入空间和角色信息，优先匹配对应的Passport
@@ -454,12 +464,22 @@ func handleSSHCommand(sess *ssh.Session, connections []*types.Connection, resMod
 	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
 	if spaceErr == nil && resourceSpace != nil {
 		spaceID = &resourceSpace.SpaceID
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) belongs to space_id=%d", resModel.GetID(), resType, *spaceID))
+	} else if spaceErr != nil {
+		logger.Logger.Debug(fmt.Sprintf("Failed to get resource space for resource %d (type: %s): %v", resModel.GetID(), resType, spaceErr))
+	} else {
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no space", resModel.GetID(), resType))
 	}
 
 	// 获取资源的角色信息（使用第一个角色）
 	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
 	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
 		roleID = &resourceRoles[0].RoleID
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has role_id=%d", resModel.GetID(), resType, *roleID))
+	} else if roleErr != nil {
+		logger.Logger.Debug(fmt.Sprintf("Failed to get resource roles for resource %d (type: %s): %v", resModel.GetID(), resType, roleErr))
+	} else {
+		logger.Logger.Debug(fmt.Sprintf("Resource %d (type: %s) has no roles", resModel.GetID(), resType))
 	}
 
 	// 传入空间和角色信息，优先匹配对应的Passport
