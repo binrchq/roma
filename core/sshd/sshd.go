@@ -24,16 +24,23 @@ func min(a, b int) int {
 	return b
 }
 
+// SSHClientOptions SSH客户端连接选项
+type SSHClientOptions struct {
+	Password string // 密码（可选）
+	SpaceID  *uint  // 空间ID（可选，用于优先匹配Passport）
+	RoleID   *uint  // 角色ID（可选，用于优先匹配Passport）
+}
+
 // NewTerminal 创建交互式 SSH 终端
-// 输入: sess - SSH 会话；ip - 目标 IP；port - 目标端口；sshUser - SSH 用户名；key - 私钥；resType - 资源类型；password - 密码（可选）
+// 输入: sess - SSH 会话；ip - 目标 IP；port - 目标端口；sshUser - SSH 用户名；key - 私钥；resType - 资源类型；opts - SSH连接选项（可选）
 // 输出: error - 错误信息
 // 必要性: 这是建立交互式 SSH 终端的核心函数，支持公钥和密码两种认证方式
-func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key string, resType string, password ...string) error {
-	var pwd string
-	if len(password) > 0 {
-		pwd = password[0]
+func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key string, resType string, opts ...SSHClientOptions) error {
+	var options SSHClientOptions
+	if len(opts) > 0 {
+		options = opts[0]
 	}
-	upstreamClient, err := NewSSHClient(ip, port, sshUser, key, resType, pwd)
+	upstreamClient, err := NewSSHClient(ip, port, sshUser, key, resType, options)
 	if err != nil {
 		return err
 	}
@@ -113,13 +120,13 @@ func NewTerminal(sess *ssh.Session, ip string, port int, sshUser string, key str
 }
 
 // NewSSHClient 创建 SSH 客户端连接
-// 输入: ip - 目标 IP 地址；port - 目标端口；sshUser - SSH 用户名；key - 私钥内容（可为空）；resType - 资源类型；password - 密码（可为空）
+// 输入: ip - 目标 IP 地址；port - 目标端口；sshUser - SSH 用户名；key - 私钥内容（可为空）；resType - 资源类型；opts - SSH连接选项（可选）
 // 输出: *gossh.Client - SSH 客户端；error - 错误信息
 // 必要性: 这是建立 SSH 连接的核心函数，支持公钥和密码两种认证方式
-func NewSSHClient(ip string, port int, sshUser string, key string, resType string, password ...string) (*gossh.Client, error) {
-	var pwd string
-	if len(password) > 0 {
-		pwd = password[0]
+func NewSSHClient(ip string, port int, sshUser string, key string, resType string, opts ...SSHClientOptions) (*gossh.Client, error) {
+	var options SSHClientOptions
+	if len(opts) > 0 {
+		options = opts[0]
 	}
 
 	// 认证优先级：
@@ -128,24 +135,20 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 	//    检索优先级：按空间和角色匹配 > 按空间匹配 > 按角色匹配 > 通用凭证
 	// 3. 如果都没有，且提供了密码，则使用密码认证
 
-	// 记录密钥来源，便于调试
 	keySource := "resource"
 	if key == "" {
 		keySource = "passport"
 		op := operation.NewPassportOperation()
 
-		// 尝试获取资源的空间和角色信息（如果提供了resourceID和resourceType）
-		// 注意：这里需要从调用方传入resourceID，当前接口暂不支持，先使用通用检索
+		// 使用传入的空间和角色信息进行优先匹配
 		var passport *model.Passport
 		var err error
 
-		// 如果未来需要支持按资源ID检索，可以添加参数：resourceID int64, resourceType string
-		// 目前先使用通用检索（向后兼容）
-		passport, err = op.GetPassportForResource(resType, nil, nil)
+		passport, err = op.GetPassportForResource(resType, options.SpaceID, options.RoleID)
 		if err != nil {
 			logger.Logger.Error(fmt.Sprintf("Failed to get passport for resource type %s: %v", resType, err))
 			// 如果 passports 表中也没有密钥，且没有密码，则返回错误
-			if pwd == "" {
+			if options.Password == "" {
 				return nil, fmt.Errorf("no key found (resource PrivateKey is empty, and no passport found for type %s) and no password provided", resType)
 			}
 		} else if passport != nil {
@@ -154,28 +157,22 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 				sshUser = passport.ServiceUser
 			}
 			// 如果Passport中有密码且当前没有提供密码，使用Passport中的密码作为备选认证
-			if pwd == "" && passport.Password != "" {
+			if options.Password == "" && passport.Password != "" {
 				// 尝试解密密码（如果已加密）
 				decryptedPassword, err := utils.DecryptPassword(passport.Password)
 				if err != nil {
-					logger.Logger.Warning(fmt.Sprintf("Failed to decrypt password from passport, using as-is: %v", err))
-					pwd = passport.Password
+					options.Password = passport.Password
 				} else {
-					pwd = decryptedPassword
+					options.Password = decryptedPassword
 				}
-				logger.Logger.Debug(fmt.Sprintf("Using password from passport for resource type %s", resType))
 			}
-			logger.Logger.Info(fmt.Sprintf("Using passport key for resource type %s (ServiceUser: %s, PassportPub: %s...)", resType, passport.ServiceUser, passport.PassportPub[:min(len(passport.PassportPub), 50)]))
 		} else {
 			keySource = "none"
-			logger.Logger.Warning(fmt.Sprintf("No passport found for resource type %s", resType))
 			// 如果 passports 表中也没有密钥，且没有密码，则返回错误
-			if pwd == "" {
+			if options.Password == "" {
 				return nil, fmt.Errorf("no key found (resource PrivateKey is empty, and no passport found for type %s) and no password provided", resType)
 			}
 		}
-	} else {
-		logger.Logger.Debug(fmt.Sprintf("Using resource PrivateKey (length: %d)", len(key)))
 	}
 
 	// 构建认证方法列表
@@ -199,37 +196,13 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 				// 如果密钥解析失败，记录详细错误，但继续尝试密码认证
 			} else {
 				authMethods = append(authMethods, gossh.PublicKeys(signer))
-				// 从私钥中提取公钥信息用于调试
-				publicKey := signer.PublicKey()
-				publicKeyBytes := gossh.MarshalAuthorizedKey(publicKey)
-				extractedPubKey := strings.TrimSpace(string(publicKeyBytes))
-				logger.Logger.Info(fmt.Sprintf("Successfully parsed private key from %s, extracted public key: %s", keySource, extractedPubKey))
-
-				// 如果是从Passport获取的，验证公钥是否匹配
-				if keySource == "passport" {
-					passportOp := operation.NewPassportOperation()
-					passport, _ := passportOp.GetPassportForResource(resType, nil, nil)
-					if passport != nil && passport.PassportPub != "" {
-						// 比较提取的公钥和Passport中存储的公钥
-						passportPubTrimmed := strings.TrimSpace(passport.PassportPub)
-						if extractedPubKey != passportPubTrimmed {
-							logger.Logger.Warning("⚠️  WARNING: Extracted public key from private key does NOT match PassportPub in database!")
-							logger.Logger.Warning(fmt.Sprintf("   Extracted: %s", extractedPubKey))
-							logger.Logger.Warning(fmt.Sprintf("   PassportPub: %s", passportPubTrimmed))
-							logger.Logger.Warning("   This may cause authentication failure. Please ensure PassportPub matches the public key derived from Passport (private key).")
-						} else {
-							logger.Logger.Debug("✓ Public key matches PassportPub in database")
-						}
-					}
-				}
 			}
 		}
 	}
 
 	// 如果提供了密码，添加密码认证（作为备选）
-	if pwd != "" {
-		authMethods = append(authMethods, gossh.Password(pwd))
-		logger.Logger.Debug("Added password authentication method")
+	if options.Password != "" {
+		authMethods = append(authMethods, gossh.Password(options.Password))
 	}
 
 	// 如果没有任何认证方法，返回详细的错误信息
@@ -241,7 +214,7 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 			keyInfo = "no key provided"
 		}
 		var pwdInfo string
-		if pwd != "" {
+		if options.Password != "" {
 			pwdInfo = "password provided"
 		} else {
 			pwdInfo = "no password provided"
@@ -260,13 +233,8 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 		HostKeyCallback: gossh.HostKeyCallback(func(hostname string, remote net.Addr, key gossh.PublicKey) error { return nil }),
 	}
 
-	logger.Logger.Info(fmt.Sprintf("Connecting to %s:%d as user '%s' with %d auth method(s)", ip, port, sshUser, len(authMethods)))
-
 	dialHost := strings.TrimSpace(ip)
-	if resolved, err := utils.ResolveHostName(dialHost); err != nil {
-		logger.Logger.Warning(fmt.Sprintf("Resolve host failed for %s: %v", dialHost, err))
-	} else if resolved != "" && resolved != dialHost {
-		logger.Logger.Debug(fmt.Sprintf("Resolve host %s -> %s", dialHost, resolved))
+	if resolved, err := utils.ResolveHostName(dialHost); err == nil && resolved != "" && resolved != dialHost {
 		dialHost = resolved
 	}
 
@@ -283,39 +251,7 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 	sshConn, chans, reqs, err := gossh.NewClientConn(conn, addr, configs)
 	if err != nil {
 		conn.Close()
-		logger.Logger.Error(fmt.Sprintf("SSH connection failed to %s:%d as user '%s': %v (auth methods: %d)", addr, port, sshUser, err, len(authMethods)))
-
-		// 详细的诊断信息
-		if strings.Contains(err.Error(), "unable to authenticate") || strings.Contains(err.Error(), "publickey") {
-			logger.Logger.Warning(strings.Repeat("=", 71))
-			logger.Logger.Warning("🔍 SSH Authentication Failure Diagnosis:")
-			logger.Logger.Warning(fmt.Sprintf("   Target: %s@%s:%d", sshUser, addr, port))
-			logger.Logger.Warning(fmt.Sprintf("   Error: %v", err))
-
-			// 如果使用了Passport，提供详细的诊断建议
-			if keySource == "passport" {
-				passportOp := operation.NewPassportOperation()
-				passport, _ := passportOp.GetPassportForResource(resType, nil, nil)
-				if passport != nil {
-					logger.Logger.Warning("   Possible causes:")
-					logger.Logger.Warning("   1. Public key (PassportPub) not in server's authorized_keys")
-					logger.Logger.Warning(fmt.Sprintf("      → Add this public key to %s@%s:~/.ssh/authorized_keys:", sshUser, addr))
-					logger.Logger.Warning(fmt.Sprintf("        %s", passport.PassportPub))
-					logger.Logger.Warning(fmt.Sprintf("   2. Wrong username (using '%s', check if correct)", sshUser))
-					logger.Logger.Warning("   3. authorized_keys file permissions (should be 600)")
-					logger.Logger.Warning("   4. SSH server config (PubkeyAuthentication must be yes)")
-					logger.Logger.Warning("   5. Public key format mismatch (check for extra spaces/newlines)")
-
-					// 如果私钥解析成功，显示提取的公钥
-					if len(authMethods) > 0 {
-						logger.Logger.Warning("   Extracted public key from private key (for verification):")
-						// 这里需要从signer中提取，但signer在作用域外，所以先记录提示
-						logger.Logger.Warning("      → Check logs above for 'extracted public key' message")
-					}
-				}
-			}
-			logger.Logger.Warning(strings.Repeat("=", 71))
-		}
+		logger.Logger.Error(fmt.Sprintf("SSH connection failed to %s as user '%s': %v", addr, sshUser, err))
 		return nil, err
 	}
 

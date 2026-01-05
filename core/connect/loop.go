@@ -20,6 +20,7 @@ import (
 	"binrc.com/roma/core/connector"
 	"binrc.com/roma/core/constants"
 	"binrc.com/roma/core/model"
+	"binrc.com/roma/core/operation"
 	"binrc.com/roma/core/sshd"
 	"binrc.com/roma/core/types"
 	"binrc.com/roma/core/utils"
@@ -56,7 +57,7 @@ func NewConnectionLoop(sess *ssh.Session, resModel model.Resource, resType strin
 	// 根据资源类型处理不同的连接逻辑
 	switch strings.ToLower(resType) {
 	case "linux":
-		return handleLinuxConnection(sess, ConnectionLoop)
+		return handleLinuxConnection(sess, ConnectionLoop, resModel, resType)
 	case "docker":
 		return handleDockerConnection(sess, ConnectionLoop, resModel)
 	case "database":
@@ -69,12 +70,12 @@ func NewConnectionLoop(sess *ssh.Session, resModel model.Resource, resType strin
 		return handleSwitchConnection(sess, ConnectionLoop, resModel)
 	default:
 		// 默认行为：尝试 SSH 连接
-		return handleLinuxConnection(sess, ConnectionLoop)
+		return handleLinuxConnection(sess, ConnectionLoop, resModel, resType)
 	}
 }
 
 // handleLinuxConnection 处理 Linux 服务器连接（标准 SSH）
-func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection) error {
+func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection, resModel model.Resource, resType string) error {
 	// 收集所有 SSH 连接配置
 	sshConnections := []*types.Connection{}
 	for _, connection := range connections {
@@ -117,7 +118,8 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection) e
 				}
 			}
 			// 测试 SSH 连接是否能建立（支持私钥和密码认证）
-			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, "linux", password)
+			opts := sshd.SSHClientOptions{Password: password}
+			client, err := sshd.NewSSHClient(c.Host, c.Port, c.Username, c.PrivateKey, "linux", opts)
 			if client != nil {
 				client.Close() // 立即关闭测试连接
 			}
@@ -157,7 +159,32 @@ func handleLinuxConnection(sess *ssh.Session, connections []*types.Connection) e
 			password = decryptedPassword
 		}
 	}
-	return sshd.NewTerminal(sess, successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux", password)
+
+	// 获取资源的空间和角色信息，用于优先匹配Passport
+	var spaceID *uint
+	var roleID *uint
+	opSpace := operation.NewSpaceOperation()
+	opResourceRole := operation.NewResourceRoleOperation()
+
+	// 获取资源的空间信息
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
+	if spaceErr == nil && resourceSpace != nil {
+		spaceID = &resourceSpace.SpaceID
+	}
+
+	// 获取资源的角色信息（使用第一个角色）
+	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
+	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
+		roleID = &resourceRoles[0].RoleID
+	}
+
+	// 传入空间和角色信息，优先匹配对应的Passport
+	opts := sshd.SSHClientOptions{
+		Password: password,
+		SpaceID:  spaceID,
+		RoleID:   roleID,
+	}
+	return sshd.NewTerminal(sess, successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, resType, opts)
 }
 
 // handleDockerConnection 处理 Docker 容器连接（直接 SSH 到容器）
@@ -174,7 +201,7 @@ func handleDockerConnection(sess *ssh.Session, connections []*types.Connection, 
 	fmt.Fprint(*sess, buffer.String())
 
 	// 直接 SSH 连接到容器
-	return handleLinuxConnection(sess, connections)
+	return handleLinuxConnection(sess, connections, resModel, "docker")
 }
 
 // handleDatabaseCommand 非交互式执行数据库命令
@@ -416,7 +443,32 @@ func handleSSHCommand(sess *ssh.Session, connections []*types.Connection, resMod
 			password = decryptedPassword
 		}
 	}
-	client, err := sshd.NewSSHClient(successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, "linux", password)
+
+	// 获取资源的空间和角色信息，用于优先匹配Passport
+	var spaceID *uint
+	var roleID *uint
+	opSpace := operation.NewSpaceOperation()
+	opResourceRole := operation.NewResourceRoleOperation()
+
+	// 获取资源的空间信息
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(resModel.GetID(), resType)
+	if spaceErr == nil && resourceSpace != nil {
+		spaceID = &resourceSpace.SpaceID
+	}
+
+	// 获取资源的角色信息（使用第一个角色）
+	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resModel.GetID(), resType)
+	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
+		roleID = &resourceRoles[0].RoleID
+	}
+
+	// 传入空间和角色信息，优先匹配对应的Passport
+	opts := sshd.SSHClientOptions{
+		Password: password,
+		SpaceID:  spaceID,
+		RoleID:   roleID,
+	}
+	client, err := sshd.NewSSHClient(successConn.Host, successConn.Port, successConn.Username, successConn.PrivateKey, resType, opts)
 	if err != nil {
 		if highRisk {
 			recordTUICommandAuditLog(username, command, resType, resourceID, resourceName, ipAddress, "failed", fmt.Sprintf("连接失败: %v", err))
@@ -883,7 +935,7 @@ func handleRouterConnection(sess *ssh.Session, connections []*types.Connection, 
 
 	if len(sshConnections) > 0 {
 		// 建立 SSH 连接
-		return handleLinuxConnection(sess, sshConnections)
+		return handleLinuxConnection(sess, sshConnections, resModel, "router")
 	}
 
 	return nil
@@ -906,5 +958,5 @@ func handleSwitchConnection(sess *ssh.Session, connections []*types.Connection, 
 	fmt.Fprint(*sess, buffer.String())
 
 	// 建立 SSH 连接
-	return handleLinuxConnection(sess, connections)
+	return handleLinuxConnection(sess, connections, resModel, "switch")
 }
