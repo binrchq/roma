@@ -152,10 +152,34 @@ func copyFromServer(args []string, clientSess *ssh.Session) error {
 		return err
 	}
 
-	// 获取凭证
+	// 获取凭证（优先按空间和角色匹配）
 	passportOp := operation.NewPassportOperation()
-	passports, err := passportOp.GetPassportByType(resourceType)
-	if err != nil || len(passports) == 0 {
+	
+	// 获取资源的空间和角色信息
+	var spaceID *uint
+	var roleID *uint
+	
+	opSpace := operation.NewSpaceOperation()
+	opResourceRole := operation.NewResourceRoleOperation()
+	
+	// 获取资源的空间信息
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(resource.GetID(), resourceType)
+	if spaceErr == nil && resourceSpace != nil {
+		spaceID = &resourceSpace.SpaceID
+	}
+	
+	// 获取资源的角色信息（使用第一个角色）
+	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resource.GetID(), resourceType)
+	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
+		roleID = &resourceRoles[0].RoleID
+	}
+	
+	// 优先按空间和角色检索Passport
+	passport, err := passportOp.GetPassportForResource(resourceType, spaceID, roleID)
+	if err != nil {
+		return fmt.Errorf("failed to get passport for resource type %s: %v", resourceType, err)
+	}
+	if passport == nil {
 		return fmt.Errorf("no passport found for resource type: %s", resourceType)
 	}
 
@@ -186,7 +210,7 @@ func copyFromServer(args []string, clientSess *ssh.Session) error {
 		return fmt.Errorf("unsupported resource type: %T", resource)
 	}
 
-	upstream, err := NewSSHClient(ip, port, passports[0].ServiceUser, passports[0].Passport, resourceType)
+	upstream, err := NewSSHClient(ip, port, passport.ServiceUser, passport.Passport, resourceType)
 	if err != nil {
 		return err
 	}
@@ -419,10 +443,34 @@ func copyFileToServer(bfReader *bufio.Reader, size int64, filename, filePath str
 		return err
 	}
 
-	// 获取凭证
+	// 获取凭证（优先按空间和角色匹配）
 	passportOp := operation.NewPassportOperation()
-	passports, err := passportOp.GetPassportByType(resourceType)
-	if err != nil || len(passports) == 0 {
+	
+	// 获取资源的空间和角色信息
+	var spaceID *uint
+	var roleID *uint
+	
+	opSpace := operation.NewSpaceOperation()
+	opResourceRole := operation.NewResourceRoleOperation()
+	
+	// 获取资源的空间信息
+	resourceSpace, spaceErr := opSpace.GetResourceSpace(resource.GetID(), resourceType)
+	if spaceErr == nil && resourceSpace != nil {
+		spaceID = &resourceSpace.SpaceID
+	}
+	
+	// 获取资源的角色信息（使用第一个角色）
+	resourceRoles, roleErr := opResourceRole.GetResourceRoles(resource.GetID(), resourceType)
+	if roleErr == nil && len(resourceRoles) > 0 && resourceRoles[0].RoleID > 0 {
+		roleID = &resourceRoles[0].RoleID
+	}
+	
+	// 优先按空间和角色检索Passport
+	passport, err := passportOp.GetPassportForResource(resourceType, spaceID, roleID)
+	if err != nil {
+		return fmt.Errorf("failed to get passport for resource type %s: %v", resourceType, err)
+	}
+	if passport == nil {
 		return fmt.Errorf("no passport found for resource type: %s", resourceType)
 	}
 
@@ -455,7 +503,7 @@ func copyFileToServer(bfReader *bufio.Reader, size int64, filename, filePath str
 		return fmt.Errorf("unsupported resource type: %T", resource)
 	}
 
-	upstream, err := NewSSHClient(ip, port, passports[0].ServiceUser, passports[0].Passport, resourceType)
+	upstream, err := NewSSHClient(ip, port, passport.ServiceUser, passport.Passport, resourceType)
 	if err != nil {
 		return err
 	}

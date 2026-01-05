@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"binrc.com/roma/core/model"
 	"binrc.com/roma/core/operation"
 	"binrc.com/roma/core/utils"
 	"binrc.com/roma/core/utils/logger"
@@ -124,6 +125,7 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 	// 认证优先级：
 	// 1. 优先使用资源自身的密钥字段（通过 key 参数传入，来自资源的 PrivateKey 字段）
 	// 2. 如果资源没有配置密钥，则从 passports 表查找该资源类型的默认密钥
+	//    检索优先级：按空间和角色匹配 > 按空间匹配 > 按角色匹配 > 通用凭证
 	// 3. 如果都没有，且提供了密码，则使用密码认证
 
 	// 记录密钥来源，便于调试
@@ -131,22 +133,34 @@ func NewSSHClient(ip string, port int, sshUser string, key string, resType strin
 	if key == "" {
 		keySource = "passport"
 		op := operation.NewPassportOperation()
-		keys, err := op.GetPassportByType(resType)
+		
+		// 尝试获取资源的空间和角色信息（如果提供了resourceID和resourceType）
+		// 注意：这里需要从调用方传入resourceID，当前接口暂不支持，先使用通用检索
+		var passport *model.Passport
+		var err error
+		
+		// 如果未来需要支持按资源ID检索，可以添加参数：resourceID int64, resourceType string
+		// 目前先使用通用检索（向后兼容）
+		passport, err = op.GetPassportForResource(resType, nil, nil)
 		if err != nil {
 			logger.Logger.Error(fmt.Sprintf("Failed to get passport for resource type %s: %v", resType, err))
 			// 如果 passports 表中也没有密钥，且没有密码，则返回错误
 			if pwd == "" {
 				return nil, fmt.Errorf("no key found (resource PrivateKey is empty, and no passport found for type %s) and no password provided", resType)
 			}
-		} else if len(keys) > 0 {
-			key = keys[0].Passport
+		} else if passport != nil {
+			key = passport.Passport
 			if sshUser == "" {
-				sshUser = keys[0].ServiceUser
+				sshUser = passport.ServiceUser
 			}
 			logger.Logger.Info(fmt.Sprintf("Using passport key for resource type %s", resType))
 		} else {
 			keySource = "none"
 			logger.Logger.Warning(fmt.Sprintf("No passport found for resource type %s", resType))
+			// 如果 passports 表中也没有密钥，且没有密码，则返回错误
+			if pwd == "" {
+				return nil, fmt.Errorf("no key found (resource PrivateKey is empty, and no passport found for type %s) and no password provided", resType)
+			}
 		}
 	} else {
 		logger.Logger.Debug(fmt.Sprintf("Using resource PrivateKey (length: %d)", len(key)))
